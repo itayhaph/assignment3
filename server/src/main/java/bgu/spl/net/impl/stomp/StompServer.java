@@ -4,26 +4,35 @@ import bgu.spl.net.impl.echo.EchoProtocol;
 import bgu.spl.net.impl.echo.LineMessageEncoderDecoder;
 import bgu.spl.net.srv.Server;
 import bgu.spl.net.srv.StompMessagingProtocolImpl;
+import bgu.spl.net.srv.BlockingConnectionHandler;
+import bgu.spl.net.srv.MessageEncoderDecoderImpl;
 
 public class StompServer {
-
     public static void main(String[] args) {
-       int port =Integer.parseInt(args[0]);
-        if (args[1] .equals("tpc")) {
+        if (args.length < 2) {
+            System.out.println("Usage: StompServer <port> <tpc/reactor>");
+            return;
+        }
+        int port = Integer.parseInt(args[0]);
+        String serverType = args[1].toLowerCase();
+
+        if (serverType.equals("tpc")) {
             Server.threadPerClient(
-                    port, // port
-                    () -> new StompMessagingProtocolImpl(), // protocol factory
-                    LineMessageEncoderDecoder::new // message encoder decoder factory
+                    port,
+                    () -> new StompMessagingProtocolImpl(),
+                    MessageEncoderDecoderImpl::new // message encoder decoder factory
             ).serve();
-        } else {
+       } else if (serverType.equals("reactor")) {
             Server.reactor(
                     Runtime.getRuntime().availableProcessors(),
-                    port, // port
-                    () -> new StompMessagingProtocolImpl(), // protocol factory
-                    LineMessageEncoderDecoder::new // message encoder decoder factory
+                    port,
+                    StompMessagingProtocolImpl::new, // Protocol factory
+                    MessageEncoderDecoderImpl::new  // Message encoder/decoder factory
             ).serve();
-
+        } else {
+            System.out.println("Invalid server type. Use 'tpc' or 'reactor'.");
         }
+
 
     }
 }
