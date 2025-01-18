@@ -1,10 +1,7 @@
 package bgu.spl.net.impl.stomp;
 
-import bgu.spl.net.impl.echo.EchoProtocol;
-import bgu.spl.net.impl.echo.LineMessageEncoderDecoder;
 import bgu.spl.net.srv.Server;
 import bgu.spl.net.srv.StompMessagingProtocolImpl;
-import bgu.spl.net.srv.BlockingConnectionHandler;
 import bgu.spl.net.srv.MessageEncoderDecoderImpl;
 
 public class StompServer {
@@ -32,7 +29,5 @@ public class StompServer {
         } else {
             System.out.println("Invalid server type. Use 'tpc' or 'reactor'.");
         }
-
-
     }
 }

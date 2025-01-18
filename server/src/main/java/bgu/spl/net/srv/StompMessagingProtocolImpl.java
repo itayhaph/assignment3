@@ -29,6 +29,7 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
             
             if (isConnected) {
                 // do something
+                // handleConnect();
             }
         } else if (MessageParser.getCommand().equals("DISCONNECT")) {
             String receiptId = MessageParser.getHeaders().get("receipt");
@@ -43,8 +44,8 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
             connections.send(channel, messageBody);
         } else if (MessageParser.getCommand().equals("SUBSCRIBE")) {
             String channel = MessageParser.getHeaders().get("destintion");
-            Integer id = Integer.parseInt(MessageParser.getHeaders().get("id"));
-            boolean isSubscribed = connections.subscribe(connectionId, channel, id);
+            Integer subscriptionId = Integer.parseInt(MessageParser.getHeaders().get("id"));
+            boolean isSubscribed = connections.subscribe(connectionId, channel, subscriptionId);
 
             if (isSubscribed) {
                 // send subscribed frame
