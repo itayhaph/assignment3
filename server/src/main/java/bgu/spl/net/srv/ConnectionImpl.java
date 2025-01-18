@@ -1,17 +1,49 @@
 package bgu.spl.net.srv;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+import bgu.spl.net.api.User;
+
+//TODO synchronize everything here
 
 public class ConnectionImpl<T> implements Connections<T> {
-    private final ConcurrentHashMap<Integer, ConnectionHandler<T>> connectionHandlers = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Set<Integer>> subscriptions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, ConnectionHandler<T>> connectionHandlers;
+    private final ConcurrentHashMap<String, Set<Integer>> subscriptions;
+    private ConcurrentHashMap<String, User> usernameToUserMap;
+    private List<String> allUsers;
+    private List<String> connectedUsers;
+
+    private static ConnectionImpl<?> instance = null;
+    private static final Object lock = new Object();
+
+    private ConnectionImpl() {
+        connectionHandlers = new ConcurrentHashMap<>();
+        subscriptions = new ConcurrentHashMap<>();
+        allUsers = new CopyOnWriteArrayList<>();
+        connectedUsers = new CopyOnWriteArrayList<>();
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> ConnectionImpl<T> getInstance() {
+        if (instance == null) {
+            synchronized (lock) {
+                if (instance == null) {
+                    instance = new ConnectionImpl<>();
+                }
+            }
+        }
+        return (ConnectionImpl<T>) instance;
+    }
 
     @Override
-    public boolean send(int connectionId, T msg) {//// TODO
+    public boolean send(int connectionId, T msg) {
         ConnectionHandler<T> handler = connectionHandlers.get(connectionId);
         if (handler == null)
             return false;
+
         handler.send(msg);
         return true;
     }
@@ -32,13 +64,29 @@ public class ConnectionImpl<T> implements Connections<T> {
         subscriptions.values().forEach(subscribers -> subscribers.remove(connectionId));
     }
 
-    public boolean connect(int connectionId, ConnectionHandler<T> handler) {
-        if (connectionHandlers.get(connectionId) != null) {
-            return false;
+    public void createConnection(int connectionId, ConnectionHandler<T> handler) {
+        connectionHandlers.put(connectionId, handler);
+    }
+
+    public boolean connect(String username, String password) {
+        // if the user is new add him to map and list of users
+        if (!allUsers.contains(username)) {
+            User user = new User(username, password);
+            allUsers.add(username);
+            usernameToUserMap.put(username, user);
+            return true;
+        } else { // the user exists
+            // checking if the user is not connected
+            if (!connectedUsers.contains(username)) {
+                // checking credentials
+                if (usernameToUserMap.get(username).isPasswordValid(password)) {
+                    connectedUsers.add(username);
+                    return true;
+                }
+            }
         }
 
-        connectionHandlers.put(connectionId, handler);
-        return true;
+        return false;
     }
 
     public boolean subscribe(int connectionId, String channel) {
