@@ -12,7 +12,7 @@ import bgu.spl.net.api.User;
 public class ConnectionImpl<T> implements Connections<T> {
     private final ConcurrentHashMap<Integer, ConnectionHandler<T>> connectionHandlers;
     private final ConcurrentHashMap<String, Set<Integer>> subscriptions;
-    private ConcurrentHashMap<String, User> usernameToUserMap;
+    private ConcurrentHashMap<Integer, User> connectionIdToUserMap;
     private List<String> allUsers;
     private List<String> connectedUsers;
 
@@ -51,6 +51,7 @@ public class ConnectionImpl<T> implements Connections<T> {
     @Override
     public void send(String channel, T msg) {
         Set<Integer> subscribers = subscriptions.get(channel);
+        
         if (subscribers != null) {
             for (Integer id : subscribers) {
                 send(id, msg);
@@ -62,24 +63,26 @@ public class ConnectionImpl<T> implements Connections<T> {
     public void disconnect(int connectionId) {
         connectionHandlers.remove(connectionId);
         subscriptions.values().forEach(subscribers -> subscribers.remove(connectionId));
+        User currentUser = connectionIdToUserMap.remove(connectionId);
+        connectedUsers.remove(currentUser.getUsername());
     }
 
     public void createConnection(int connectionId, ConnectionHandler<T> handler) {
         connectionHandlers.put(connectionId, handler);
     }
 
-    public boolean connect(String username, String password) {
+    public boolean connect(int connectionId, String username, String password) {
         // if the user is new add him to map and list of users
         if (!allUsers.contains(username)) {
             User user = new User(username, password);
             allUsers.add(username);
-            usernameToUserMap.put(username, user);
+            connectionIdToUserMap.put(connectionId, user);
             return true;
         } else { // the user exists
             // checking if the user is not connected
             if (!connectedUsers.contains(username)) {
                 // checking credentials
-                if (usernameToUserMap.get(username).isPasswordValid(password)) {
+                if (connectionIdToUserMap.get(connectionId).isPasswordValid(password)) {
                     connectedUsers.add(username);
                     return true;
                 }
@@ -89,28 +92,28 @@ public class ConnectionImpl<T> implements Connections<T> {
         return false;
     }
 
-    public boolean subscribe(int connectionId, String channel) {
-        if (connectionHandlers.get(connectionId) != null) {
+    public boolean subscribe(int connectionId, String channel, int subscriptionId) {
+        // if the connection is already subscribed to this channel return false
+        if (connectionHandlers.get(connectionId) == null ||
+                subscriptions.get(channel).contains(connectionId))
             return false;
-        }
 
         subscriptions.computeIfAbsent(channel, k -> ConcurrentHashMap.newKeySet()).add(connectionId);
+        connectionIdToUserMap.get(connectionId).setSubscription(subscriptionId, channel);
         return true;
     }
 
-    public boolean unsubscribe(int connectionId, String channel) {
+    public boolean unsubscribe(int connectionId, int subscriptionId) {
         if (connectionHandlers.get(connectionId) == null) {
             return false;
         }
 
+        String channel = connectionIdToUserMap.get(connectionId).unsubscribe(subscriptionId);
         Set<Integer> subscribers = subscriptions.get(channel);
+
         if (subscribers != null)
             subscribers.remove(connectionId);
 
         return true;
-    }
-
-    public ConnectionHandler<T> getConnectionById(int connectionId) {
-        return connectionHandlers.get(connectionId);
     }
 }

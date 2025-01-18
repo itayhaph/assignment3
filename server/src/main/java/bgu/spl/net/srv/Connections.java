@@ -7,11 +7,9 @@ public interface Connections<T> {
 
     void disconnect(int connectionId);
 
-    boolean connect(String username, String password);
+    boolean connect(int connectionId, String username, String password);
 
-    boolean subscribe(int connectionId, String channel);
+    boolean subscribe(int connectionId, String channel, int subscriptionId);
 
-    boolean unsubscribe(int connectionId, String channel);
-
-    ConnectionHandler<T> getConnectionById(int connectionId);
+    boolean unsubscribe(int connectionId, int subscriptionId);
 }

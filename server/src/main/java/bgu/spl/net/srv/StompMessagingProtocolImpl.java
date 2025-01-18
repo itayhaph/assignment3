@@ -14,7 +14,7 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
      **/
 
     @Override
-    public void start(int connectionId, Connections<String> connections ) {
+    public void start(int connectionId, Connections<String> connections) {
         this.connectionId = connectionId;
         this.connections = connections;
     }
@@ -25,32 +25,36 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
         if (MessageParser.getCommand().equals("CONNECT")) {
             String username = MessageParser.getHeaders().get("login");
             String password = MessageParser.getHeaders().get("passcode");
-            boolean isConnected = connections.connect(username, password);
-            if(isConnected){
+            boolean isConnected = connections.connect(connectionId, username, password);
+            
+            if (isConnected) {
                 // do something
             }
         } else if (MessageParser.getCommand().equals("DISCONNECT")) {
+            String receiptId = MessageParser.getHeaders().get("receipt");
             connections.disconnect(connectionId);
             this.terminate = true;
 
+            // send "receipt" stomp frame with the receipt id
         } else if (MessageParser.getCommand().equals("SEND")) {
             String channel = MessageParser.getHeaders().get("destination");
-            connections.send(channel, message);
+            String messageBody = MessageParser.getBody();
+            // TODO: make "message" stomp frame and send it
+            connections.send(channel, messageBody);
         } else if (MessageParser.getCommand().equals("SUBSCRIBE")) {
             String channel = MessageParser.getHeaders().get("destintion");
-            String id = MessageParser.getHeaders().get("id");
-            boolean isSubscribed = connections.subscribe(connectionId, channel);
+            Integer id = Integer.parseInt(MessageParser.getHeaders().get("id"));
+            boolean isSubscribed = connections.subscribe(connectionId, channel, id);
 
-            if(isSubscribed){
+            if (isSubscribed) {
                 // send subscribed frame
-            }
-            else {
+            } else {
                 // send error frame
             }
         } else if (MessageParser.getCommand().equals("UNSUBSCRIBE")) {
-            String id = MessageParser.getHeaders().get("id");
-            // unsubscribe from every channel that has the connectionId/the id from headers
-            // connections.unsubscribe(connectionId)
+            int subscriptionId = Integer.parseInt(MessageParser.getHeaders().get("id"));
+            // unsubscribe from the channel that has the subscription id from headers
+            connections.unsubscribe(connectionId, subscriptionId);
         }
     }
 
