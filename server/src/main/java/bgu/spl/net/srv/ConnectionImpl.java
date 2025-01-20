@@ -51,7 +51,7 @@ public class ConnectionImpl<T> implements Connections<T> {
     @Override
     public void send(String channel, T msg) {
         Set<Integer> subscribers = subscriptions.get(channel);
-        
+
         if (subscribers != null) {
             for (Integer id : subscribers) {
                 send(id, msg);
@@ -71,49 +71,58 @@ public class ConnectionImpl<T> implements Connections<T> {
         connectionHandlers.put(connectionId, handler);
     }
 
-    public boolean connect(int connectionId, String username, String password) {
+    public String connect(int connectionId, String username, String password) {
         // if the user is new add him to map and list of users
         if (!allUsers.contains(username)) {
             User user = new User(username, password);
             allUsers.add(username);
             connectionIdToUserMap.put(connectionId, user);
-            return true;
+            return null;
         } else { // the user exists
             // checking if the user is not connected
             if (!connectedUsers.contains(username)) {
                 // checking credentials
                 if (connectionIdToUserMap.get(connectionId).isPasswordValid(password)) {
                     connectedUsers.add(username);
-                    return true;
+                    return null;
+                } else {
+                    return "Password is incorrect";
                 }
+            } else {
+                return "User is already connected from another client";
             }
         }
-
-        return false;
     }
 
-    public boolean subscribe(int connectionId, String channel, int subscriptionId) {
+    public String subscribe(int connectionId, String channel, int subscriptionId) {
         // if the connection is already subscribed to this channel return false
-        if (connectionHandlers.get(connectionId) == null ||
-                subscriptions.get(channel).contains(connectionId))
-            return false;
-
-        subscriptions.computeIfAbsent(channel, k -> ConcurrentHashMap.newKeySet()).add(connectionId);
-        connectionIdToUserMap.get(connectionId).setSubscription(subscriptionId, channel);
-        return true;
+        if (subscriptions.get(channel).contains(connectionId)) {
+            return "the user is alrady subscribed to this channel: " + channel;
+        } else {
+            subscriptions.computeIfAbsent(channel, k -> ConcurrentHashMap.newKeySet()).add(connectionId);
+            connectionIdToUserMap.get(connectionId).setSubscription(subscriptionId, channel);
+            return null;
+        }
     }
 
-    public boolean unsubscribe(int connectionId, int subscriptionId) {
-        if (connectionHandlers.get(connectionId) == null) {
-            return false;
-        }
-
+    public String unsubscribe(int connectionId, int subscriptionId) {
         String channel = connectionIdToUserMap.get(connectionId).unsubscribe(subscriptionId);
         Set<Integer> subscribers = subscriptions.get(channel);
 
-        if (subscribers != null)
+        if (subscribers != null) {
             subscribers.remove(connectionId);
+            return null;
+        } else {
+            return "isnt subscribed";
+        }
+    }
 
-        return true;
+    public int getUserSubscription(int connectionId, String channel) {
+        return connectionIdToUserMap.get(connectionId)
+                .getSubscriptionIdByChannel(channel);
+    }
+
+    public boolean isChannelExist(String channel) {
+        return subscriptions.containsKey(channel);
     }
 }

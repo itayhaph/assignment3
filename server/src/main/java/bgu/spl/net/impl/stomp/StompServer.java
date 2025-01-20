@@ -10,6 +10,7 @@ public class StompServer {
             System.out.println("Usage: StompServer <port> <tpc/reactor>");
             return;
         }
+        
         int port = Integer.parseInt(args[0]);
         String serverType = args[1].toLowerCase();
 

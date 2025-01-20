@@ -32,7 +32,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             out = new BufferedOutputStream(sock.getOutputStream());
 
             Random random = new Random();
-            int connectionId = random.nextInt(); // TODO generate?
+            int connectionId = random.nextInt();
             ConnectionImpl<T> connectionImpl = ConnectionImpl.getInstance();
 
             protocol.start(connectionId, connectionImpl);
@@ -48,7 +48,6 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-
     }
 
     @Override
