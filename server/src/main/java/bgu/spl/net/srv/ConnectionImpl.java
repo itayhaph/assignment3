@@ -12,7 +12,7 @@ public class ConnectionImpl<T> implements Connections<T> {
     private final ConcurrentHashMap<Integer, ConnectionHandler<T>> connectionHandlers;
     private final ConcurrentHashMap<String, Set<Integer>> subscriptions;
     private ConcurrentHashMap<Integer, User> connectionIdToUserMap;
-    private List<String> allUsers;
+    private ConcurrentHashMap<String, User> allUsers;
     private List<String> connectedUsers;
     private ConcurrentHashMap<String, ReentrantLock> lockMap = new ConcurrentHashMap<>();
 
@@ -22,7 +22,7 @@ public class ConnectionImpl<T> implements Connections<T> {
     private ConnectionImpl() {
         connectionHandlers = new ConcurrentHashMap<>();
         subscriptions = new ConcurrentHashMap<>();
-        allUsers = new CopyOnWriteArrayList<>();
+        allUsers = new ConcurrentHashMap<>();
         connectedUsers = new CopyOnWriteArrayList<>();
     }
 
@@ -67,8 +67,8 @@ public class ConnectionImpl<T> implements Connections<T> {
     @Override
     public void disconnect(int connectionId) {
         connectionHandlers.remove(connectionId);
-        
-        synchronized(subscriptions) {
+
+        synchronized (subscriptions) {
             subscriptions.values().forEach(subscribers -> {
                 subscribers.remove(connectionId);
             });
@@ -86,14 +86,14 @@ public class ConnectionImpl<T> implements Connections<T> {
         // if the user is new add him to map and list of users
         if (!allUsers.contains(username)) {
             User user = new User(username, password);
-            allUsers.add(username);
+            allUsers.put(username, user);
             connectionIdToUserMap.put(connectionId, user);
             return null;
         } else { // the user exists
             // checking if the user is not connected
             if (!connectedUsers.contains(username)) {
                 // checking credentials
-                if (connectionIdToUserMap.get(connectionId).isPasswordValid(password)) {
+                if (allUsers.get(username).isPasswordValid(password)) {
                     connectedUsers.add(username);
                     return null;
                 } else {
