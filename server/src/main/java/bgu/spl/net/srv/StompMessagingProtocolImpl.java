@@ -7,7 +7,6 @@ import java.util.Random;
 import bgu.spl.net.api.MessagingProtocol;
 import bgu.spl.net.api.StompFrameUtils;
 import bgu.spl.net.srv.StompMessageParser.StompMessage;
-
 public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
     private Connections<String> connections;
     boolean terminate = false;
