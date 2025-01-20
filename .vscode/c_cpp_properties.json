@@ -3,7 +3,10 @@
         {
             "name": "Mac",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "/usr/include",               // Standard system headers
+                "/usr/local/include",         // Additional include paths
+                "/workspaces/SPL251-Assignment3-student-template/include"
             ],
             "defines": [],
             "macFrameworkPath": [
