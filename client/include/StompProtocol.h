@@ -1,19 +1,22 @@
 #pragma once
 
-#include "../include/ConnectionHandler.h"
+#include <string>
+#include "ConnectionHandler.h"
 
-// TODO: implement the STOMP protocol
+using namespace std;
+
 class StompProtocol
 {
-private:
-string command;
+    private:
+        ConnectionHandler &connectionHandler;
+        int receipt;
 
-string data;
-public:
-processLogin(string data);
-processJion(string data);
-processExit(string data);
-processReport(string data);
-processSummery(string data);
-processLogout(string data);
+    public:
+        StompProtocol(ConnectionHandler &connectionHandler);
+        bool processLogin(int host, string username, string password);
+        void processJoin(string chanel);
+        void processExit(string data);
+        void processReport(string data);
+        void processSummery(string data);
+        void processLogout(string data);
 };

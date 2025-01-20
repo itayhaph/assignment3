@@ -3,135 +3,135 @@
 #include <mutex>
 #include <string>
 #include <map>
-#include "event.h" // Assuming this is the provided event parser
-#include "stomp_connection_handler.h" // Custom class to handle STOMP connection
+#include <vector>
+#include "Auxiliary.h"
+#include "event.h"
+#include "ConnectionHandler.h"
+#include "StompProtocol.h"
+
+using std::vector;
+using namespace std;
 
 std::mutex mutex;
 bool isLoggedIn = false;
 std::string activeUser;
 
-// Function to process user commands
-void handleUserInput(StompConnectionHandler& handler) {
+
+void handleUserInput(StompProtocol& protocol)
+{
     std::string command;
-    while (true) {
+    while (true)
+    {
+        
+        Auxiliary aux;
         std::getline(std::cin, command);
+        vector<string> line = aux.parseArguments(command);
 
-        if (command.rfind("login", 0) == 0) {
-            if (isLoggedIn) {
-                std::cout << "The client is already logged in, log out before trying again" << std::endl;
+        if (line[0] == "login")
+        {
+            if (isLoggedIn)
+            {
+                std::cout << "The client is already logged in" << std::endl;
                 continue;
             }
 
-            std::string host, username, password;
-            size_t firstSpace = command.find(' ');
-            size_t secondSpace = command.find(' ', firstSpace + 1);
-            size_t thirdSpace = command.find(' ', secondSpace + 1);
+            int host = std::stoi(line[1]);
+            string username = line[2];
+            string password = line[3];
 
-            if (firstSpace == std::string::npos || secondSpace == std::string::npos || thirdSpace == std::string::npos) {
-                std::cout << "Error: Invalid login command format" << std::endl;
-                continue;
-            }
-
-            host = command.substr(firstSpace + 1, secondSpace - firstSpace - 1);
-            username = command.substr(secondSpace + 1, thirdSpace - secondSpace - 1);
-            password = command.substr(thirdSpace + 1);
-
-            if (handler.connect(host)) {
-                if (handler.sendConnectFrame(username, password)) {
-                    isLoggedIn = true;
-                    activeUser = username;
-                    std::cout << "Login successful" << std::endl;
-                }
-            } else {
-                std::cout << "Could not connect to server" << std::endl;
-            }
-        } else if (command.rfind("join", 0) == 0) {
-            if (!isLoggedIn) {
+            StompProtocol::protocol.processLogin(host,username,password);
+        }
+        else if (line[0] == "join")
+        {
+            if (!isLoggedIn)
+            {
                 std::cout << "Error: Client not logged in" << std::endl;
                 continue;
             }
 
-            std::string channelName = command.substr(5);
-            if (handler.sendSubscribeFrame(channelName)) {
-                std::cout << "Joined channel " << channelName << std::endl;
-            }
-        } else if (command.rfind("exit", 0) == 0) {
-            if (!isLoggedIn) {
+            std::string channelName = line[1];
+            protocol.sendSubscribeFrame(channelName);
+        }
+        else if (line[0]=="exit")
+        {
+            if (!isLoggedIn)
+            {
                 std::cout << "Error: Client not logged in" << std::endl;
                 continue;
             }
 
-            std::string channelName = command.substr(5);
-            if (handler.sendUnsubscribeFrame(channelName)) {
-                std::cout << "Exited channel " << channelName << std::endl;
-            }
-        } else if (command.rfind("report", 0) == 0) {
-            if (!isLoggedIn) {
+            std::string channelName = line[1];
+            handler.sendUnsubscribeFrame(channelName);
+            
+        }
+        else if (line[0]=="report")
+        {
+            if (!isLoggedIn)
+            {
                 std::cout << "Error: Client not logged in" << std::endl;
                 continue;
             }
 
-            std::string filePath = command.substr(7);
+            std::string filePath = line[1];
             auto events = parseEventsFile(filePath);
 
-            for (const auto& event : events.events) {
-                if (handler.sendEvent(event, events.channel_name, activeUser)) {
-                    std::cout << "Reported event: " << event.event_name << std::endl;
-                }
+            for (const auto &event : events.events)
+            {
+                handler.sendEvent(event, events.channel_name, activeUser);
             }
-        } else if (command.rfind("summary", 0) == 0) {
-            if (!isLoggedIn) {
+        }
+        else if (line[0]=="summary")
+        {
+            if (!isLoggedIn)
+            {
                 std::cout << "Error: Client not logged in" << std::endl;
                 continue;
             }
 
-            size_t firstSpace = command.find(' ');
-            size_t secondSpace = command.find(' ', firstSpace + 1);
-            size_t thirdSpace = command.find(' ', secondSpace + 1);
-
-            if (firstSpace == std::string::npos || secondSpace == std::string::npos || thirdSpace == std::string::npos) {
-                std::cout << "Error: Invalid summary command format" << std::endl;
-                continue;
-            }
-
-            std::string channelName = command.substr(firstSpace + 1, secondSpace - firstSpace - 1);
-            std::string user = command.substr(secondSpace + 1, thirdSpace - secondSpace - 1);
-            std::string filePath = command.substr(thirdSpace + 1);
+            std::string channelName = line[1];
+            std::string user = line[2];
+            std::string filePath = line[3];
 
             handler.summarizeEvents(channelName, user, filePath);
-        } else if (command == "logout") {
-            if (!isLoggedIn) {
+        }
+        else if (line[0]=="logout")
+        {
+            if (!isLoggedIn)
+            {
                 std::cout << "Error: Client not logged in" << std::endl;
                 continue;
             }
 
-            if (handler.sendDisconnectFrame()) {
+            if (handler.sendDisconnectFrame())
+            {
                 isLoggedIn = false;
-                activeUser.clear();
-                std::cout << "Logout successful" << std::endl;
             }
-        } else {
-            std::cout << "Unknown command" << std::endl;
         }
+       
     }
 }
 
-// Function to handle server responses
-void handleServerResponses(StompConnectionHandler& handler) {
-    while (true) {
+void handleServerResponses(StompProtocol& protocol)
+{
+    while (true)
+    {
         std::string response = handler.receiveResponse();
-        if (!response.empty()) {
+        if (!response.empty())
+        {
             std::lock_guard<std::mutex> lock(mutex);
             std::cout << "Server: " << response << std::endl;
         }
     }
 }
 
-int main() {
-    StompConnectionHandler handler;
-
-    std::thread userInputThread(handleUserInput, std::ref(handler));
-    std::thread serverResponseThread(handleServerResponses, std::ref(handler));
+int main(int argc, char **argv)
+{
+    
+    ConnectionHandler handler = ConnectionHandler(argv[0],(short) argv[1]);
+    hendler.connect();
+    StompProtocol protocol=StompProtocol(handler);
+    std::thread userInputThread(handleUserInput, std::ref(protocol));
+    std::thread serverResponseThread(handleServerResponses, std::ref(protocol));
 
     userInputThread.join();
     serverResponseThread.join();
