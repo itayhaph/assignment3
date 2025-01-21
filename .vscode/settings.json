@@ -65,7 +65,15 @@
         "__hash_table": "cpp",
         "__string": "cpp",
         "__tree": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "ranges": "cpp",
+        "compare": "cpp",
+        "concepts": "cpp",
+        "iterator": "cpp",
+        "memory_resource": "cpp",
+        "random": "cpp",
+        "stop_token": "cpp",
+        "cinttypes": "cpp"
     },
     "makefile.makefilePath": "client/"
 }
