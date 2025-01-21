@@ -119,6 +119,10 @@ public class ConnectionImpl<T> implements Connections<T> {
 
     public String unsubscribe(int connectionId, int subscriptionId) {
         String channel = connectionIdToUserMap.get(connectionId).unsubscribe(subscriptionId);
+        if(channel == null) {
+            return "The user is not subscribed to the channel";
+        }
+
         ReentrantLock lock = lockMap.get(channel);
         lock.lock();
         Set<Integer> subscribers = subscriptions.get(channel);
@@ -129,7 +133,7 @@ public class ConnectionImpl<T> implements Connections<T> {
             return null;
         } else {
             lock.unlock();
-            return "isnt subscribed";
+            return "The user already unsubscribed to the channel";
         }
     }
 

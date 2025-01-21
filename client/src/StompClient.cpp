@@ -8,25 +8,24 @@
 #include "event.h"
 #include "ConnectionHandler.h"
 #include "StompProtocol.h"
+#include "StompMessageParser.h"
 
 using std::vector;
 using namespace std;
 
-std::mutex mutex;
 bool isLoggedIn = false;
 std::string activeUser;
 
-
-void handleUserInput(StompProtocol& protocol,ConnectionHandler& handler)
+void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
 {
     std::string command;
+    // TODO figure out where we close this and the other while (close the threads)
     while (true)
     {
-        
         Auxiliary aux;
         std::getline(std::cin, command);
         vector<string> line = aux.parseArguments(command);
-          
+
         if (line[0] == "login")
         {
             if (!handler.connect())
@@ -34,14 +33,14 @@ void handleUserInput(StompProtocol& protocol,ConnectionHandler& handler)
                 std::cout << "The client is already logged in" << std::endl;
                 continue;
             }
-            else{
-                isLoggedIn=true;
-
+            else
+            {
                 int host = std::stoi(line[1]);
                 string username = line[2];
                 string password = line[3];
 
-                StompProtocol::protocol.processLogin(host,username,password);
+                handler.addCallback([&]() -> std::optional<bool>
+                                    { protocol.processLogin(host, username, password); });
             }
         }
         else if (line[0] == "join")
@@ -51,23 +50,28 @@ void handleUserInput(StompProtocol& protocol,ConnectionHandler& handler)
                 std::cout << "Error: Client not logged in" << std::endl;
                 continue;
             }
-
-            std::string channelName = line[1];
-            protocol.sendSubscribeFrame(channelName);
+            else
+            {
+                std::string channelName = line[1];
+                handler.addCallback([&]() -> std::optional<bool>
+                                    { protocol.processJoin(channelName); });
+            }
         }
-        else if (line[0]=="exit")
+        else if (line[0] == "exit")
         {
             if (!isLoggedIn)
             {
                 std::cout << "Error: Client not logged in" << std::endl;
                 continue;
             }
-
-            std::string channelName = line[1];
-            handler.sendUnsubscribeFrame(channelName);
-            
+            else
+            {
+                std::string channelName = line[1];
+                handler.addCallback([&]() -> std::optional<bool>
+                                    { protocol.processExit(channelName); });
+            }
         }
-        else if (line[0]=="report")
+        else if (line[0] == "report")
         {
             if (!isLoggedIn)
             {
@@ -76,14 +80,11 @@ void handleUserInput(StompProtocol& protocol,ConnectionHandler& handler)
             }
 
             std::string filePath = line[1];
-            auto events = parseEventsFile(filePath);
 
-            for (const auto &event : events.events)
-            {
-                handler.sendEvent(event, events.channel_name, activeUser);
-            }
+            handler.addCallback([&]() -> std::optional<bool>
+                                { protocol.processReport(filePath); });
         }
-        else if (line[0]=="summary")
+        else if (line[0] == "summary")
         {
             if (!isLoggedIn)
             {
@@ -95,9 +96,10 @@ void handleUserInput(StompProtocol& protocol,ConnectionHandler& handler)
             std::string user = line[2];
             std::string filePath = line[3];
 
-            handler.summarizeEvents(channelName, user, filePath);
+            handler.addCallback([&]() -> std::optional<bool>
+                                { protocol.processSummary(channelName, user, filePath); });
         }
-        else if (line[0]=="logout")
+        else if (line[0] == "logout")
         {
             if (!isLoggedIn)
             {
@@ -105,36 +107,61 @@ void handleUserInput(StompProtocol& protocol,ConnectionHandler& handler)
                 continue;
             }
 
-            if (protocol.processLogout())
-            {
-                isLoggedIn = false;
-            }
+            handler.addCallback([&]() -> std::optional<bool>
+                                { protocol.processLogout(); });
         }
-       
+        else
+        {
+            std::cout << "Error: Client not logged in" << std::endl;
+            continue;
+        }
     }
 }
 
-void handleServerResponses(StompProtocol& protocol, ConnectionHandler& handler)
+void handleServerResponses(StompProtocol &protocol, ConnectionHandler &handler)
 {
     while (true)
     {
+        std::string line = "";
         handler.processNextCallback();
-        std::string response = handler.receiveResponse();
-        if (!response.empty())
+
+        if (handler.hasDataToRead())
         {
-            std::lock_guard<std::mutex> lock(mutex);
-            std::cout << "Server: " << response << std::endl;
+            bool response = handler.getLine(line);
+
+            if (response)
+            {
+                StompMessage frame = StompMessageParser::parseMessage(line);
+                if (frame.getCommand() == "CONNECTED")
+                {
+                    isLoggedIn = true;
+                    std::cout << "Login successful" << std::endl;
+                }
+
+                else if (frame.getCommand() == "RECEIPT")
+                {
+                    protocol.handleReceipt(frame.getHeader("receipt-id"));
+                }
+                else if (frame.getCommand() == "ERROR")
+                {
+                    protocol.terminate();
+                }
+                else if (frame.getCommand() == "MESSAGE")
+                {
+                    protocol.handleMessage(frame.getHeaders(), frame.getBody());
+                }
+            }
         }
     }
 }
 
 int main(int argc, char **argv)
 {
-    ConnectionHandler handler = ConnectionHandler(argv[0],(short) argv[1]);
+    ConnectionHandler handler = ConnectionHandler(argv[0], (short)argv[1]);
     handler.connect();
-    StompProtocol protocol=StompProtocol(handler);
-    std::thread userInputThread(handleUserInput, std::ref(protocol),&handler);
-    std::thread serverResponseThread(handleServerResponses, std::ref(protocol),&handler);
+    StompProtocol protocol = StompProtocol(handler);
+    std::thread userInputThread(handleUserInput, std::ref(protocol), &handler);
+    std::thread serverResponseThread(handleServerResponses, std::ref(protocol), &handler);
 
     userInputThread.join();
     serverResponseThread.join();
