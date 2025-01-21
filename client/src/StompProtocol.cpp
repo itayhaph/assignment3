@@ -12,7 +12,6 @@ StompProtocol::StompProtocol(ConnectionHandler &connectionHandler) : connectionH
 
 bool StompProtocol::processLogin(int host, string username, string password)
 {
-
     string frame = "CONNECT \n";
     frame.append("accept-version:1.2").append("\n");
     frame.append("host:" + host).append("\n");
@@ -32,8 +31,6 @@ void StompProtocol::processJoin(string chanel)
     // Use the distribution to cover the entire range of int
     std::uniform_int_distribution<> dis(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
 
-    // Generate and return a random integer
-
     int id = dis(gen);
     string frame = "SUBSCRIBE";
     frame.append("destination: " + chanel).append("\n");
@@ -44,7 +41,10 @@ void StompProtocol::processJoin(string chanel)
     connectionHandler.sendFrameAscii(frame, ch);
     receipt++;
 }
-// void StompProtocol::processExit(string data);
-// void StompProtocol::processReport(string data);
-// void StompProtocol::processSummery(string data);
-// void StompProtocol::processLogout(string data);
+
+void StompProtocol::processExit(string data);
+void StompProtocol::processReport(string data);
+void StompProtocol::processSummary(string data);
+bool StompProtocol::processLogout() {
+    
+};

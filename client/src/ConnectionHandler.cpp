@@ -106,3 +106,25 @@ void ConnectionHandler::close() {
 		std::cout << "closing failed: connection already closed" << std::endl;
 	}
 }
+
+void addCallback(const std::function<std::optional<bool>()>& callback) {
+    callbackQueue.push(callback);
+}
+
+std::optional<bool> processNextCallback() {
+	if (!callbackQueue.empty()) {
+		// Get the next callback
+		auto callback = callbackQueue.front();
+		callbackQueue.pop();
+
+		// Execute the callback and check the result
+		std::optional<bool> result = callback();
+		if (result.has_value()) {
+			return result.value();
+		} else {
+			return std::nullopt;
+		}
+	} else {
+		std::cout << "No callbacks in the queue!" << std::endl;
+	}
+}

@@ -17,7 +17,7 @@ bool isLoggedIn = false;
 std::string activeUser;
 
 
-void handleUserInput(StompProtocol& protocol)
+void handleUserInput(StompProtocol& protocol,ConnectionHandler& handler)
 {
     std::string command;
     while (true)
@@ -26,20 +26,23 @@ void handleUserInput(StompProtocol& protocol)
         Auxiliary aux;
         std::getline(std::cin, command);
         vector<string> line = aux.parseArguments(command);
-
+          
         if (line[0] == "login")
         {
-            if (isLoggedIn)
+            if (!handler.connect())
             {
                 std::cout << "The client is already logged in" << std::endl;
                 continue;
             }
+            else{
+                isLoggedIn=true;
 
-            int host = std::stoi(line[1]);
-            string username = line[2];
-            string password = line[3];
+                int host = std::stoi(line[1]);
+                string username = line[2];
+                string password = line[3];
 
-            StompProtocol::protocol.processLogin(host,username,password);
+                StompProtocol::protocol.processLogin(host,username,password);
+            }
         }
         else if (line[0] == "join")
         {
@@ -102,7 +105,7 @@ void handleUserInput(StompProtocol& protocol)
                 continue;
             }
 
-            if (handler.sendDisconnectFrame())
+            if (protocol.processLogout())
             {
                 isLoggedIn = false;
             }
@@ -111,10 +114,11 @@ void handleUserInput(StompProtocol& protocol)
     }
 }
 
-void handleServerResponses(StompProtocol& protocol)
+void handleServerResponses(StompProtocol& protocol, ConnectionHandler& handler)
 {
     while (true)
     {
+        handler.processNextCallback();
         std::string response = handler.receiveResponse();
         if (!response.empty())
         {
@@ -126,12 +130,11 @@ void handleServerResponses(StompProtocol& protocol)
 
 int main(int argc, char **argv)
 {
-    
     ConnectionHandler handler = ConnectionHandler(argv[0],(short) argv[1]);
-    hendler.connect();
+    handler.connect();
     StompProtocol protocol=StompProtocol(handler);
-    std::thread userInputThread(handleUserInput, std::ref(protocol));
-    std::thread serverResponseThread(handleServerResponses, std::ref(protocol));
+    std::thread userInputThread(handleUserInput, std::ref(protocol),&handler);
+    std::thread serverResponseThread(handleServerResponses, std::ref(protocol),&handler);
 
     userInputThread.join();
     serverResponseThread.join();

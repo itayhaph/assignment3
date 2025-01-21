@@ -12,6 +12,7 @@ private:
 	const short port_;
 	boost::asio::io_service io_service_;   // Provides core I/O functionality
 	tcp::socket socket_;
+	std::queue<std::function<std::optional<bool>()>> callbackQueue;
 
 public:
 	ConnectionHandler(std::string host, short port);
@@ -47,5 +48,9 @@ public:
 
 	// Close down the connection properly.
 	void close();
+
+	void addCallback(const std::function<std::optional<bool>()>& callback);
+
+	std::optional<bool> processNextCallback();
 
 }; //class ConnectionHandler

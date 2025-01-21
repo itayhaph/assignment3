@@ -17,6 +17,6 @@ class StompProtocol
         void processJoin(string chanel);
         void processExit(string data);
         void processReport(string data);
-        void processSummery(string data);
-        void processLogout(string data);
+        void processSummary(string data);
+        bool processLogout();
 };
