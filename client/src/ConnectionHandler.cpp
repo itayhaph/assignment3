@@ -1,4 +1,4 @@
-#include "../include/ConnectionHandler.h"
+#include "ConnectionHandler.h"
 
 using boost::asio::ip::tcp;
 
@@ -8,8 +8,9 @@ using std::cerr;
 using std::endl;
 using std::string;
 
-ConnectionHandler::ConnectionHandler(string host, short port) : host_(host), port_(port), io_service_(),
-                                                                socket_(io_service_) {}
+std::mutex mutex;
+
+ConnectionHandler::ConnectionHandler(string host, short port) : host_(host), port_(port), io_service_(),socket_(io_service_) {}
 
 ConnectionHandler::~ConnectionHandler() {
 	close();
@@ -106,16 +107,28 @@ void ConnectionHandler::close() {
 		std::cout << "closing failed: connection already closed" << std::endl;
 	}
 }
+bool ConnectionHandler::hasDataToRead(){
+	try {
+        return socket_.available() > 0;
+    } catch (const boost::system::system_error &e) {
+        std::cerr << "Error checking socket availability: " << e.what() << std::endl;
+        return false;
+    }
+};
 
-void addCallback(const std::function<std::optional<bool>()>& callback) {
+void ConnectionHandler::addCallback(const std::function<std::optional<bool>()>& callback) {
+	std::lock_guard<std::mutex> lock(mutex);
     callbackQueue.push(callback);
+	std::lock_guard<std::mutex> unlock(mutex);
 }
 
-std::optional<bool> processNextCallback() {
+std::optional<bool> ConnectionHandler::processNextCallback() {
 	if (!callbackQueue.empty()) {
 		// Get the next callback
+		std::lock_guard<std::mutex> lock(mutex);
 		auto callback = callbackQueue.front();
 		callbackQueue.pop();
+		std::lock_guard<std::mutex> unlock(mutex);
 
 		// Execute the callback and check the result
 		std::optional<bool> result = callback();

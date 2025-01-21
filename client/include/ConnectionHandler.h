@@ -3,6 +3,7 @@
 #include <string>
 #include <iostream>
 #include <boost/asio.hpp>
+#include <queue>
 
 using boost::asio::ip::tcp;
 
@@ -48,6 +49,9 @@ public:
 
 	// Close down the connection properly.
 	void close();
+
+	// checking if the socket has data to read
+	bool hasDataToRead();
 
 	void addCallback(const std::function<std::optional<bool>()>& callback);
 
