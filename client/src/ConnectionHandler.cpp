@@ -116,13 +116,13 @@ bool ConnectionHandler::hasDataToRead(){
     }
 };
 
-void ConnectionHandler::addCallback(const std::function<std::optional<bool>()>& callback) {
+void ConnectionHandler::addCallback(const std::function<boost::optional<bool>()>& callback) {
 	std::lock_guard<std::mutex> lock(mutex);
     callbackQueue.push(callback);
 	std::lock_guard<std::mutex> unlock(mutex);
 }
 
-std::optional<bool> ConnectionHandler::processNextCallback() {
+boost::optional<bool> ConnectionHandler::processNextCallback() {
 	if (!callbackQueue.empty()) {
 		// Get the next callback
 		std::lock_guard<std::mutex> lock(mutex);
@@ -131,11 +131,12 @@ std::optional<bool> ConnectionHandler::processNextCallback() {
 		std::lock_guard<std::mutex> unlock(mutex);
 
 		// Execute the callback and check the result
-		std::optional<bool> result = callback();
+		boost::optional<bool> result = callback();
 		if (result.has_value()) {
 			return result.value();
-		} else {
-			return std::nullopt;
+		} 
+		else {
+    	return boost::none;
 		}
 	} else {
 		std::cout << "No callbacks in the queue!" << std::endl;

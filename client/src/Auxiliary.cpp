@@ -18,7 +18,7 @@ std::vector<std::string> Auxiliary::parseArguments(const std::string& line) {
     return arguments;
 }
 
-std::string epoch_to_date(time_t epoch_time) {
+std::string Auxiliary::epoch_to_date(time_t epoch_time) {
     // Convert epoch time to a tm structure
     std::tm* timeinfo = std::localtime(&epoch_time);
 
@@ -36,7 +36,7 @@ std::string epoch_to_date(time_t epoch_time) {
     return oss.str();
 }
 
-std::map<std::string, std::string> parseFormattedString(std::string& input) {
+std::map<std::string, std::string> Auxiliary::parseFormattedString(const std::string& input) {
     std::map<std::string, std::string> parsedData;
     std::istringstream stream(input);
     std::string line, currentKey, currentValue;

@@ -4,17 +4,22 @@
 #include <string>
 #include <iostream>
 #include <random>
+#include <unordered_map>
+#include <random>
 
 using namespace std;
 
-StompProtocol::StompProtocol(ConnectionHandler &connectionHandler) : connectionHandler(connectionHandler), receipt(0),gen(std::random_device{}()),
-          dis(0, std::numeric_limits<int>::max())
+StompProtocol::StompProtocol(ConnectionHandler &connectionHandler) : connectionHandler(connectionHandler), receipt(0), gen(std::random_device{}()), dis(0, std::numeric_limits<int>::max()), // Properly initialize dis
+                                                                     receiptToCommand(),
+                                                                     channelToId(),
+                                                                     events(),
+                                                                     username("")
 {
 }
 
-void StompProtocol::processLogin(int host, string username, string password)
+void StompProtocol::processLogin(int host, std::string username, std::string password)
 {
-    string frame = "CONNECT \n";
+    std::string frame = "CONNECT \n";
     frame.append("accept-version:1.2").append("\n");
     frame.append("host:" + host).append("\n");
     frame.append("login:" + username).append("\n");
@@ -26,17 +31,17 @@ void StompProtocol::processLogin(int host, string username, string password)
     connectionHandler.sendLine(frame);
 };
 
-void StompProtocol::processJoin(string chanel)
+void StompProtocol::processJoin(std::string chanel)
 {
     int id = dis(gen);
-    string frame = "SUBSCRIBE\n";
+    std::string frame = "SUBSCRIBE\n";
     frame.append("destination: " + chanel).append("\n");
     frame.append("id: " + id).append("\n");
     frame.append("receipt: " + receipt).append("\n");
 
     connectionHandler.sendLine(frame);
     receiptToCommand[receipt] = {"SUBSCRIBE", chanel};
-    chanelToId[chanel] = id;
+    channelToId[chanel] = id;
     receipt++;
 }
 
@@ -52,8 +57,8 @@ std::pair<std::string, std::string> StompProtocol::getReceipt(int receipt)
 
 int StompProtocol::getId(string chanel)
 {
-    auto it = chanelToId.find(chanel);
-    if (it != chanelToId.end())
+    auto it = channelToId.find(chanel);
+    if (it != channelToId.end())
     {
         return it->second; // Return the found pair
     }
@@ -63,7 +68,7 @@ int StompProtocol::getId(string chanel)
 void StompProtocol::processExit(string chanel)
 {
     int id = getId(chanel);
-    string frame = "UNSUBSCRIBE\n";
+    std::string frame = "UNSUBSCRIBE\n";
     frame.append("id: " + id).append("\n");
     frame.append("receipt: " + receipt).append("\n");
 
@@ -91,7 +96,7 @@ void StompProtocol::processReport(string filePath)
     {
         event.setEventOwnerUser(username);
         // command:
-        string frame = "SEND\n";
+        std::string frame = "SEND\n";
         frame.append("destination:" + event.get_channel_name()).append("\n");
 
         // new line for body:
@@ -111,7 +116,7 @@ void StompProtocol::processReport(string filePath)
     }
 };
 
-void StompProtocol::processSummary(string channelName, string user, string filePath)
+void StompProtocol::processSummary(string channelName, std::string user, std::string filePath)
 {
     Auxiliary aux;
     std::vector<Event> filteredEvents;
@@ -158,8 +163,8 @@ void StompProtocol::processSummary(string channelName, string user, string fileP
 
     for (size_t i = 0; i < filteredEvents.size(); ++i)
     {
-        string dateTime = aux.epoch_to_date(filteredEvents[i].get_date_time());
-        string summary = filteredEvents[i].get_description();
+        std::string dateTime = aux.epoch_to_date(filteredEvents[i].get_date_time());
+        std::string summary = filteredEvents[i].get_description();
         if (summary.length() > 27)
         {
             summary = summary.substr(0, 27) + "...";
@@ -177,16 +182,16 @@ void StompProtocol::processSummary(string channelName, string user, string fileP
 
 void StompProtocol::processLogout()
 {
-    string frame = "DISCONNECT \n";
+    std::string frame = "DISCONNECT \n";
     frame.append("receipt:" + receipt);
 
     connectionHandler.sendLine(frame);
 };
 
-void StompProtocol::handleReceipt(string receiptId)
+void StompProtocol::handleReceipt(std::string receiptId)
 {
     // ready to terminate because the last message arrived
-    pair<string, string> receiptPair = getReceipt(receipt);
+    pair<std::string, std::string> receiptPair = getReceipt(receipt);
     if (receiptPair.first == "SUBSCRIBE")
     {
         std::cout << "Joined channel " + receiptPair.second << std::endl;
@@ -210,7 +215,7 @@ void StompProtocol::terminate()
     connectionHandler.close();
 }
 
-void StompProtocol::handleMessage(std::unordered_map<std::string, std::string> headers, string body)
+void StompProtocol::handleMessage(std::unordered_map<std::string, std::string> headers, std::string body)
 {
     Auxiliary aux;
     std::map<std::string, std::string> parsedBody = aux.parseFormattedString(body);
@@ -240,6 +245,11 @@ void StompProtocol::handleMessage(std::unordered_map<std::string, std::string> h
         // adding the event to the events vector
         events.push_back(Event(channel_name, city, name, date_time, description, general_information));
     }
+}
+
+void StompProtocol::setUsername(const std::string &username)
+{
+    this->username = username;
 }
 
 // bool StompProtocol::shouldTerminate()

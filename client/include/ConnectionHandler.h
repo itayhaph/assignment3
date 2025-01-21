@@ -2,6 +2,8 @@
 
 #include <string>
 #include <iostream>
+#include <functional>
+#include <boost/optional.hpp>
 #include <boost/asio.hpp>
 #include <queue>
 
@@ -13,9 +15,12 @@ private:
 	const short port_;
 	boost::asio::io_service io_service_;   // Provides core I/O functionality
 	tcp::socket socket_;
-	std::queue<std::function<std::optional<bool>()>> callbackQueue;
+	std::queue<std::function<boost::optional<bool>()>> callbackQueue;
 
 public:
+	ConnectionHandler(const ConnectionHandler&) = delete;
+	ConnectionHandler& operator=(const ConnectionHandler&) = delete;
+
 	ConnectionHandler(std::string host, short port);
 
 	virtual ~ConnectionHandler();
@@ -53,8 +58,8 @@ public:
 	// checking if the socket has data to read
 	bool hasDataToRead();
 
-	void addCallback(const std::function<std::optional<bool>()>& callback);
+	void addCallback(const std::function<boost::optional<bool>()>& callback);
 
-	std::optional<bool> processNextCallback();
+	boost::optional<bool> processNextCallback();
 
 }; //class ConnectionHandler

@@ -3,6 +3,9 @@
 #include <string>
 #include "ConnectionHandler.h"
 #include "event.h"
+#include <unordered_map>
+#include <random>
+
 
 using namespace std;
 
@@ -15,7 +18,7 @@ private:
     std::mt19937 gen; 
     std::uniform_int_distribution<> dis;
     std::unordered_map<int, std::pair<std::string, std::string>> receiptToCommand;
-    std::unordered_map<std::string, int> chanelToId;
+    std::unordered_map<std::string, int> channelToId;
     vector<Event> events;
     string username;
 
@@ -33,5 +36,5 @@ public:
     // bool shouldTerminate();
     std::pair<std::string, std::string> getReceipt(int receipt);
     int getId(string chanel);
-    void setUsername(string username);
+    void setUsername(const std::string& username);
 };
