@@ -5,11 +5,10 @@
 #include <iostream>
 #include <random>
 #include <unordered_map>
-#include <random>
 
 using namespace std;
 
-StompProtocol::StompProtocol(ConnectionHandler &connectionHandler) : connectionHandler(connectionHandler), receipt(0), gen(std::random_device{}()), dis(0, std::numeric_limits<int>::max()), // Properly initialize dis
+StompProtocol::StompProtocol(ConnectionHandler &connectionHandler) : connectionHandler(connectionHandler), receipt(0),
                                                                      receiptToCommand(),
                                                                      channelToId(),
                                                                      events(),
@@ -26,21 +25,22 @@ void StompProtocol::processLogin(std::string host, std::string username, std::st
     frame.append("login:" + username).append("\n");
     frame.append("passcode:" + password).append("\n");
 
-    const std::string &frame2 = frame;
     // saving the username for the report command
     setUsername(username);
 
-        connectionHandler.sendLine(frame);
-        std::cout << "sended bytes to server" << std::endl;
+    connectionHandler.sendLine(frame);
 };
 
 void StompProtocol::processJoin(std::string chanel)
 {
+    std::mt19937 gen(std::random_device{}());
+    std::uniform_int_distribution<int> dis(1, std::numeric_limits<int>::max());
+
     int id = dis(gen);
     std::string frame = "SUBSCRIBE\n";
     frame.append("destination: " + chanel).append("\n");
-    frame.append("id: " + id).append("\n");
-    frame.append("receipt: " + receipt).append("\n");
+    frame.append("id: " + std::to_string(id)).append("\n");
+    frame.append("receipt: " + std::to_string(receipt)).append("\n");
 
     connectionHandler.sendLine(frame);
     receiptToCommand[receipt] = {"SUBSCRIBE", chanel};
@@ -72,8 +72,8 @@ void StompProtocol::processExit(string chanel)
 {
     int id = getId(chanel);
     std::string frame = "UNSUBSCRIBE\n";
-    frame.append("id: " + id).append("\n");
-    frame.append("receipt: " + receipt).append("\n");
+    frame.append("id: " + std::to_string(id)).append("\n");
+    frame.append("receipt: " + std::to_string(receipt)).append("\n");
 
     connectionHandler.sendLine(frame);
     receiptToCommand[receipt] = {"UNSUBSCRIBE", chanel};
@@ -83,10 +83,8 @@ void StompProtocol::processExit(string chanel)
 void StompProtocol::processReport(string filePath)
 {
     names_and_events nne = parseEventsFile(filePath);
-    std::vector<Event> sortedEvents = events;
-
-    // Sorting the new vector
-    std::sort(sortedEvents.begin(), sortedEvents.end(), [](const Event &a, const Event &b)
+    // Sorting the events by date time and then by name
+    std::sort(nne.events.begin(), nne.events.end(), [](const Event &a, const Event &b)
               {
                   if (a.get_date_time() == b.get_date_time())
                   {
@@ -94,8 +92,8 @@ void StompProtocol::processReport(string filePath)
                   }
                   return a.get_date_time() < b.get_date_time(); // Order by dateTime
               });
-
-    for (Event &event : sortedEvents)
+   
+    for (Event &event : nne.events)
     {
         event.setEventOwnerUser(username);
         // command:
@@ -107,13 +105,16 @@ void StompProtocol::processReport(string filePath)
         frame.append("user: " + username).append("\n");
         frame.append("city: " + event.get_city()).append("\n");
         frame.append("event name: " + event.get_name()).append("\n");
-        frame.append("date time: " + event.get_date_time()).append("\n");
+        frame.append("date time: " + std::to_string(event.get_date_time())).append("\n");
         frame.append("general information:\n");
-        frame.append("  active: ").append(event.get_general_information().find("active")->second);
-        frame.append("  forces_arrival_at_scene: ").append(event.get_general_information().find("forces_arrival_at_scene")->second);
+
+        string active = event.get_general_information().at("active");
+        string forces = event.get_general_information().at("forces_arrival_at_scene");
+
+        frame.append("active: ").append(active).append("\n");
+        frame.append("forces_arrival_at_scene: ").append(forces).append("\n");
         frame.append("description:\n");
         frame.append(event.get_description()).append("\n");
-
         connectionHandler.sendLine(frame);
         events.push_back(event);
     }
@@ -134,30 +135,29 @@ void StompProtocol::processSummary(string channelName, std::string user, std::st
     int activeCount = 0;
     int forcesArrivalCount = 0;
 
-    for (const auto &event : events)
-    {
-        // Count active = true
-        auto activeIt = event.get_general_information().find("active");
-        if (activeIt != event.get_general_information().end() && activeIt->second == "true")
-        {
-            ++activeCount;
-        }
-
-        // Count forces_arrival_at_scene = true
-        auto forcesArrivalIt = event.get_general_information().find("forces_arrival_at_scene");
-        if (forcesArrivalIt != event.get_general_information().end() && forcesArrivalIt->second == "true")
-        {
-            ++forcesArrivalCount;
-        }
-
-        // Check if the event has the specific channel and name
+    for(const auto event:events) {
         if (event.get_channel_name() == channelName && event.getEventOwnerUser() == user)
         {
             filteredEvents.push_back(event);
         }
     }
+    
+    for (const auto event : filteredEvents)
+    {
+        // Count active = true
+        if (event.get_general_information().at("active") == "true")
+        {
+            ++activeCount;
+        }
 
-    outFile << "Channel <" << channelName << ">\n";
+        // Count forces_arrival_at_scene = true
+        if (event.get_general_information().at("forces_arrival_at_scene") == "true")
+        {
+            ++forcesArrivalCount;
+        }
+    }
+
+    outFile << "Channel: " << channelName << "\n";
     outFile << "Stats:\n";
     outFile << "Total: " << filteredEvents.size() << "\n";
     outFile << "active: " << activeCount << "\n";
@@ -186,7 +186,8 @@ void StompProtocol::processSummary(string channelName, std::string user, std::st
 void StompProtocol::processLogout()
 {
     std::string frame = "DISCONNECT \n";
-    frame.append("receipt:" + receipt);
+    frame.append("receipt:" + std::to_string(receipt));
+    receiptToCommand[receipt] = {"DISCONNECT",""};
 
     connectionHandler.sendLine(frame);
 };
@@ -194,7 +195,8 @@ void StompProtocol::processLogout()
 void StompProtocol::handleReceipt(std::string receiptId)
 {
     // ready to terminate because the last message arrived
-    pair<std::string, std::string> receiptPair = getReceipt(receipt);
+    pair<std::string, std::string> receiptPair = getReceipt(stoi(receiptId));
+
     if (receiptPair.first == "SUBSCRIBE")
     {
         std::cout << "Joined channel " + receiptPair.second << std::endl;
@@ -207,6 +209,7 @@ void StompProtocol::handleReceipt(std::string receiptId)
 
     else if (receiptPair.first == "DISCONNECT")
     {
+        std::cout << "terminating "<< std::endl;
         terminate();
         // isTerminated = true;
     }
@@ -249,7 +252,9 @@ void StompProtocol::handleMessage(std::unordered_map<std::string, std::string> h
         }
 
         // adding the event to the events vector
-        events.push_back(Event(channel_name, city, name, date_time, description, general_information));
+        Event event(channel_name, city, name, date_time, description, general_information);
+        event.setEventOwnerUser(user);
+        events.push_back(event);
     }
 }
 

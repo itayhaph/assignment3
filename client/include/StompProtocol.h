@@ -15,8 +15,6 @@ private:
     ConnectionHandler &connectionHandler;
     int receipt;
     //bool isTerminated;
-    std::mt19937 gen; 
-    std::uniform_int_distribution<> dis;
     std::unordered_map<int, std::pair<std::string, std::string>> receiptToCommand;
     std::unordered_map<std::string, int> channelToId;
     vector<Event> events;

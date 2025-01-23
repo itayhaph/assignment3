@@ -10,7 +10,7 @@ using std::string;
 
 std::mutex mutex;
 
-ConnectionHandler::ConnectionHandler(string host, short port, std::queue<std::function<void()>> &callbackQueue) : host_(host), port_(port), io_service_(), socket_(io_service_), callbackQueue(callbackQueue) {}
+ConnectionHandler::ConnectionHandler(string host, short port, std::queue<std::function<void()>> &callbackQueue) : host_(std::move(host)), port_(port), io_service_(), socket_(io_service_), callbackQueue(callbackQueue) {}
 
 ConnectionHandler::~ConnectionHandler()
 {
@@ -26,6 +26,7 @@ bool ConnectionHandler::connect()
 		tcp::endpoint endpoint(boost::asio::ip::address::from_string(host_), port_); // the server endpoint
 		boost::system::error_code error;
 		socket_.connect(endpoint, error);
+		io_service_.run();
 		if (error)
 			throw boost::system::system_error(error);
 	}
@@ -37,6 +38,14 @@ bool ConnectionHandler::connect()
 
 	std::cout << "connect successfuly to "
 			  << host_ << ":" << port_ << std::endl;
+
+	if (socket_.is_open())
+	{
+		std::cout << "socket is open" << std::endl;
+	}
+	else{
+		std::cout << "socket not open" << std::endl;
+	}
 	return true;
 }
 
@@ -61,16 +70,21 @@ bool ConnectionHandler::getBytes(char bytes[], unsigned int bytesToRead)
 	return true;
 }
 
-bool ConnectionHandler::sendBytes(const char bytes[], int bytesToWrite) {
+bool ConnectionHandler::sendBytes(const char bytes[], int bytesToWrite)
+{
 	int tmp = 0;
 	boost::system::error_code error;
-	try {
-		while (!error && bytesToWrite > tmp) {
+	try
+	{
+		while (!error && bytesToWrite > tmp)
+		{
 			tmp += socket_.write_some(boost::asio::buffer(bytes + tmp, bytesToWrite - tmp), error);
 		}
 		if (error)
 			throw boost::system::system_error(error);
-	} catch (std::exception &e) {
+	}
+	catch (std::exception &e)
+	{
 		std::cerr << "recv failed (Error: " << e.what() << ')' << std::endl;
 		return false;
 	}
@@ -79,14 +93,12 @@ bool ConnectionHandler::sendBytes(const char bytes[], int bytesToWrite) {
 
 bool ConnectionHandler::getLine(std::string &line)
 {
-	return getFrameAscii(line, '\n');
+	return getFrameAscii(line, '\0');
 }
 
 bool ConnectionHandler::sendLine(std::string &line)
 {
-	std::cout << "sending line to server" << std::endl;
-
-	return sendFrameAscii(line, '\n');
+	return sendFrameAscii(line, '\0');
 }
 
 bool ConnectionHandler::getFrameAscii(std::string &frame, char delimiter)
@@ -117,7 +129,7 @@ bool ConnectionHandler::getFrameAscii(std::string &frame, char delimiter)
 bool ConnectionHandler::sendFrameAscii(const std::string &frame, char delimiter)
 {
 	bool result = sendBytes(frame.c_str(), frame.length());
-	std::cout << "sended first bytes to server" << std::endl;
+	
 	if (!result)
 		return false;
 	return sendBytes(&delimiter, 1);
@@ -151,28 +163,29 @@ void ConnectionHandler::addCallback(const std::function<void()> &callback)
 {
 	std::lock_guard<std::mutex> lock(mutex);
 	callbackQueue.emplace(callback);
-	lock.~lock_guard();
+	// lock.~lock_guard();
 }
 
 void ConnectionHandler::processNextCallback()
 {
-	if (!callbackQueue.empty())
-	{
-		std::cout << "got callback" << std::endl;
-		// Get the next callback
-		std::lock_guard<std::mutex> lock(mutex);
-		std::function<void()> &callback = callbackQueue.front();
-		callbackQueue.pop();
-		lock.~lock_guard();
+    std::function<void()> callback;
 
-		// Execute the callback and check the result
-		callback();
-	}
-	else
-	{
-		// no callbacks
-	}
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+
+        if (!callbackQueue.empty())
+        {
+            callback = callbackQueue.front();
+            callbackQueue.pop();
+        }
+    } // Mutex is unlocked here
+
+    if (callback)
+    {
+        callback(); // Execute the callback outside the lock
+    }
 }
+
 std::string ConnectionHandler::getHost()
 {
 	return host_;

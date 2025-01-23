@@ -29,13 +29,13 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
         StompMessage MessageParser = StompMessageParser.parseMessage((String) message);
         Map<String, String> headers = new HashMap<>();
 
+        System.err.println("processing");
         //CONNECT
         if (MessageParser.getCommand().equals("CONNECT")) {
-            
+            System.err.println("got connect from client");
             String username = MessageParser.getHeaders().get("login");
             String password = MessageParser.getHeaders().get("passcode");
             String isConnected = connections.connect(connectionId, username, password);
-
             
             if (isConnected == null) {
                 headers.put("version", "1.2");
@@ -52,13 +52,13 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
         
         //DISCONNECT
         else if (MessageParser.getCommand().equals("DISCONNECT")) {
-
             String receiptId = MessageParser.getHeaders().get("receipt");
-            connections.disconnect(connectionId);
-
             headers.put("receipt-id", receiptId);
             String disconnectMessage = StompFrameUtils.createStompFrame("RECEIPT", headers, null);
+
             connections.send(connectionId, disconnectMessage);
+
+            connections.disconnect(connectionId);
             this.terminate = true;
         } 
         
@@ -69,9 +69,11 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
             String channel = MessageParser.getHeaders().get("destination");
             String messageBody = MessageParser.getBody();
             Random random = new Random();
+            int randomId = random.nextInt(Integer.MAX_VALUE); 
+
             // TODO: check if we need to generate message id or use global counter
             String subscriptionId = String.valueOf(connections.getUserSubscription(connectionId, channel));
-            String messageId = String.valueOf(random.nextInt());
+            String messageId = String.valueOf(randomId);
             
             if (!connections.isChannelExist(channel)) {
                 StringBuilder errorBody = new StringBuilder(); 
@@ -102,7 +104,7 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
         
         //SUBSCRIBE
         else if (MessageParser.getCommand().equals("SUBSCRIBE")) {
-            String channel = MessageParser.getHeaders().get("destintion");
+            String channel = MessageParser.getHeaders().get("destination");
             Integer subscriptionId = Integer.parseInt(MessageParser.getHeaders().get("id"));
             String isSubscribed = connections.subscribe(connectionId, channel, subscriptionId);
 

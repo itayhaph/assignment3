@@ -1,5 +1,6 @@
 package bgu.spl.net.srv;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,7 +15,7 @@ public class ConnectionImpl<T> implements Connections<T> {
     private ConcurrentHashMap<Integer, User> connectionIdToUserMap;
     private ConcurrentHashMap<String, User> allUsers;
     private List<String> connectedUsers;
-    private ConcurrentHashMap<String, ReentrantLock> lockMap = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<String, ReentrantLock> lockMap;
 
     private static ConnectionImpl<?> instance = null;
     private static final Object lock = new Object();
@@ -22,8 +23,10 @@ public class ConnectionImpl<T> implements Connections<T> {
     private ConnectionImpl() {
         connectionHandlers = new ConcurrentHashMap<>();
         subscriptions = new ConcurrentHashMap<>();
+        connectionIdToUserMap = new ConcurrentHashMap<>();
         allUsers = new ConcurrentHashMap<>();
         connectedUsers = new CopyOnWriteArrayList<>();
+        lockMap = new ConcurrentHashMap<>();
     }
 
     @SuppressWarnings("unchecked")
@@ -66,7 +69,7 @@ public class ConnectionImpl<T> implements Connections<T> {
 
     @Override
     public void disconnect(int connectionId) {
-        connectionHandlers.remove(connectionId);
+        ConnectionHandler<T> connectionHandler = connectionHandlers.remove(connectionId);
 
         synchronized (subscriptions) {
             subscriptions.values().forEach(subscribers -> {
@@ -75,7 +78,18 @@ public class ConnectionImpl<T> implements Connections<T> {
         }
 
         User currentUser = connectionIdToUserMap.remove(connectionId);
-        connectedUsers.remove(currentUser.getUsername());
+
+        if (currentUser != null) {
+            System.err.println("removing" + currentUser.getUsername());
+            connectedUsers.remove(currentUser.getUsername());
+        }
+
+        try{
+            connectionHandler.close();
+        }
+        catch(IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void createConnection(int connectionId, ConnectionHandler<T> handler) {
@@ -84,16 +98,19 @@ public class ConnectionImpl<T> implements Connections<T> {
 
     public synchronized String connect(int connectionId, String username, String password) {
         // if the user is new add him to map and list of users
-        if (!allUsers.contains(username)) {
+        System.err.println("username: " + username);
+        if (!allUsers.containsKey(username)) {
             User user = new User(username, password);
             allUsers.put(username, user);
             connectionIdToUserMap.put(connectionId, user);
+            connectedUsers.add(username);
             return null;
         } else { // the user exists
             // checking if the user is not connected
             if (!connectedUsers.contains(username)) {
                 // checking credentials
                 if (allUsers.get(username).isPasswordValid(password)) {
+                    connectionIdToUserMap.put(connectionId, allUsers.get(username));
                     connectedUsers.add(username);
                     return null;
                 } else {
@@ -106,20 +123,22 @@ public class ConnectionImpl<T> implements Connections<T> {
     }
 
     public String subscribe(int connectionId, String channel, int subscriptionId) {
-        // if the connection is already subscribed to this channel return false
-        if (subscriptions.get(channel).contains(connectionId)) {
-            return "the user is alrady subscribed to this channel: " + channel;
-        } else {
-            lockMap.putIfAbsent(channel, new ReentrantLock());
-            subscriptions.computeIfAbsent(channel, k -> ConcurrentHashMap.newKeySet()).add(connectionId);
-            connectionIdToUserMap.get(connectionId).setSubscription(subscriptionId, channel);
-            return null;
+        lockMap.putIfAbsent(channel, new ReentrantLock());
+        subscriptions.computeIfAbsent(channel, k -> ConcurrentHashMap.newKeySet());
+
+        Set<Integer> subscribers = subscriptions.get(channel);
+        if (subscribers != null && subscribers.contains(connectionId)) {
+            return "The user is already subscribed to this channel: " + channel;
         }
+
+        subscribers.add(connectionId);
+        connectionIdToUserMap.get(connectionId).setSubscription(subscriptionId, channel);
+        return null;
     }
 
     public String unsubscribe(int connectionId, int subscriptionId) {
         String channel = connectionIdToUserMap.get(connectionId).unsubscribe(subscriptionId);
-        if(channel == null) {
+        if (channel == null) {
             return "The user is not subscribed to the channel";
         }
 

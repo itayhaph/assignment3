@@ -9,6 +9,7 @@
 #include "ConnectionHandler.h"
 #include "StompProtocol.h"
 #include "StompMessageParser.h"
+#include <random>
 
 using std::vector;
 using namespace std;
@@ -28,18 +29,20 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
 
         if (line[0] == "login")
         {
-            if (!handler.connect())
+            if (isLoggedIn)
             {
                 std::cout << "The client is already logged in" << std::endl;
                 continue;
             }
             else
             {
+                handler.connect();
                 string host = handler.getHost();
-                string username = line[2];
-                string password = line[3];
+                // string host2 = std::to_string(host);
+                string username = line[1];
+                string password = line[2];
 
-                handler.addCallback([&]()
+                handler.addCallback([host, username, password, &protocol]()
                                     { protocol.processLogin(host, username, password); });
             }
         }
@@ -52,8 +55,8 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
             }
             else
             {
-                std::string channelName = line[1];
-                handler.addCallback([&]()
+                string channelName = line[1];
+                handler.addCallback([channelName, &protocol]()
                                     { protocol.processJoin(channelName); });
             }
         }
@@ -67,7 +70,7 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
             else
             {
                 std::string channelName = line[1];
-                handler.addCallback([&]()
+                handler.addCallback([channelName, &protocol]()
                                     { protocol.processExit(channelName); });
             }
         }
@@ -81,7 +84,7 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
 
             std::string filePath = line[1];
 
-            handler.addCallback([&]()
+            handler.addCallback([filePath, &protocol]()
                                 { protocol.processReport(filePath); });
         }
         else if (line[0] == "summary")
@@ -96,7 +99,7 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
             std::string user = line[2];
             std::string filePath = line[3];
 
-            handler.addCallback([&]()
+            handler.addCallback([channelName, user, filePath, &protocol]()
                                 { protocol.processSummary(channelName, user, filePath); });
         }
         else if (line[0] == "logout")
@@ -107,8 +110,9 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
                 continue;
             }
 
-            handler.addCallback([&]()
+            handler.addCallback([&protocol]()
                                 { protocol.processLogout(); });
+            isLoggedIn = false;
         }
         else
         {
@@ -128,9 +132,6 @@ void handleServerResponses(StompProtocol &protocol, ConnectionHandler &handler)
         if (handler.hasDataToRead())
         {
             bool response = handler.getLine(line);
-            std::cout << line << std::endl;
-
-            
 
             if (response)
             {
@@ -147,6 +148,8 @@ void handleServerResponses(StompProtocol &protocol, ConnectionHandler &handler)
                 }
                 else if (frame.getCommand() == "ERROR")
                 {
+                    std::cout << "Server Returned Error: " + frame.getHeader("message")<< std::endl;
+                    isLoggedIn=false;
                     protocol.terminate();
                 }
                 else if (frame.getCommand() == "MESSAGE")
@@ -160,12 +163,11 @@ void handleServerResponses(StompProtocol &protocol, ConnectionHandler &handler)
 
 int main(int argc, char **argv)
 {
-
     std::cout << "connect to " << argv[1] << "#####" << argv[2] << std::endl;
     std::string host = argv[1];
     short port = static_cast<short>(std::stoi(argv[2]));
     std::queue<std::function<void()>> callbackQueue;
-    ConnectionHandler handler(host, port, callbackQueue);
+    ConnectionHandler handler(argv[1], port, callbackQueue);
     StompProtocol protocol = StompProtocol(handler);
     std::thread userInputThread(handleUserInput, std::ref(protocol), std::ref(handler));
     std::thread serverResponseThread(handleServerResponses, std::ref(protocol), std::ref(handler));

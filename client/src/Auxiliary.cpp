@@ -39,39 +39,40 @@ std::string Auxiliary::epoch_to_date(time_t epoch_time) {
 std::map<std::string, std::string> Auxiliary::parseFormattedString(const std::string& input) {
     std::map<std::string, std::string> parsedData;
     std::istringstream stream(input);
-    std::string line, currentKey, currentValue;
+    std::string line;
 
+    // Parse each line
     while (std::getline(stream, line)) {
-        // Remove leading and trailing spaces (optional)
-        line.erase(0, line.find_first_not_of(" \t"));
-        line.erase(line.find_last_not_of(" \t") + 1);
-
-        // Ignore empty lines
+        // Skip empty lines
         if (line.empty()) continue;
 
-        // Check if line contains a "key : value" format
-        size_t delimiterPos = line.find(" : ");
-        if (delimiterPos != std::string::npos) {
-            // Save previous key-value pair if it's multi-line
-            if (!currentKey.empty() && !currentValue.empty()) {
-                parsedData[currentKey] = currentValue;
-                currentKey.clear();
-                currentValue.clear();
+        // Handle special cases like "description:"
+        if (line.back() == ':') {
+            std::string key = line.substr(0, line.size() - 1); // Remove the colon
+            std::string value;
+
+            // Read the next lines until another key or end of stream
+            while (std::getline(stream, line)) {
+                if (line.empty()) break;
+                if (line.find(":") != std::string::npos) { // Check if it's another key
+                    stream.seekg(-line.size() - 1, std::ios_base::cur); // Move back the stream position
+                    break;
+                }
+                if (!value.empty()) value += "\n"; // Preserve multiline structure
+                value += line;
             }
 
-            // Extract key and value
-            currentKey = line.substr(0, delimiterPos);
-            currentValue = line.substr(delimiterPos + 3); // Skip " : "
-        } else if (!currentKey.empty()) {
-            // Handle multi-line value
-            if (!currentValue.empty()) currentValue += "\n";
-            currentValue += line;
+            parsedData[key] = value;
         }
-    }
-
-    // Save the last key-value pair
-    if (!currentKey.empty() && !currentValue.empty()) {
-        parsedData[currentKey] = currentValue;
+        // Handle standard key-value pairs (key: value)
+        else {
+            size_t delimiterPos = line.find(":");
+            if (delimiterPos != std::string::npos) {
+                std::string key = line.substr(0, delimiterPos);
+                std::string value = line.substr(delimiterPos + 2); // Skip ": "
+                parsedData[key] = value;
+            }
+        }
     }
 
     return parsedData;
