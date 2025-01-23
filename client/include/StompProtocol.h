@@ -24,7 +24,7 @@ private:
 
 public:
     StompProtocol(ConnectionHandler &connectionHandler);
-    void processLogin(int host, string username, string password);
+    void processLogin(string host, string username, string password);
     void processJoin(string chanel);
     void processExit(string data);
     void processReport(string filePath);

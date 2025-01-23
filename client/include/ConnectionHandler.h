@@ -15,13 +15,13 @@ private:
 	const short port_;
 	boost::asio::io_service io_service_;   // Provides core I/O functionality
 	tcp::socket socket_;
-	std::queue<std::function<boost::optional<bool>()>> callbackQueue;
+	std::queue<std::function<void()>> callbackQueue;
 
 public:
 	ConnectionHandler(const ConnectionHandler&) = delete;
 	ConnectionHandler& operator=(const ConnectionHandler&) = delete;
 
-	ConnectionHandler(std::string host, short port);
+	ConnectionHandler(std::string host, short port, std::queue<std::function<void()>>& callbackQueue);
 
 	virtual ~ConnectionHandler();
 
@@ -58,8 +58,10 @@ public:
 	// checking if the socket has data to read
 	bool hasDataToRead();
 
-	void addCallback(const std::function<boost::optional<bool>()>& callback);
+	void addCallback(const std::function<void()>& callback);
 
-	boost::optional<bool> processNextCallback();
+	void processNextCallback();
+
+	std::string getHost();
 
 }; //class ConnectionHandler

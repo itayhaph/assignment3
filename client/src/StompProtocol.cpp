@@ -17,18 +17,21 @@ StompProtocol::StompProtocol(ConnectionHandler &connectionHandler) : connectionH
 {
 }
 
-void StompProtocol::processLogin(int host, std::string username, std::string password)
+void StompProtocol::processLogin(std::string host, std::string username, std::string password)
 {
+    std::cout << "processing login" << std::endl;
     std::string frame = "CONNECT \n";
     frame.append("accept-version:1.2").append("\n");
     frame.append("host:" + host).append("\n");
     frame.append("login:" + username).append("\n");
     frame.append("passcode:" + password).append("\n");
 
+    const std::string &frame2 = frame;
     // saving the username for the report command
     setUsername(username);
 
-    connectionHandler.sendLine(frame);
+        connectionHandler.sendLine(frame);
+        std::cout << "sended bytes to server" << std::endl;
 };
 
 void StompProtocol::processJoin(std::string chanel)
@@ -233,8 +236,11 @@ void StompProtocol::handleMessage(std::unordered_map<std::string, std::string> h
         std::map<std::string, std::string> general_information;
 
         // Extract general information
-        for (const auto &[key, value] : parsedBody)
+        for (const auto &pair : parsedBody)
         {
+            const auto &key = pair.first;
+            const auto &value = pair.second;
+
             if (key != "user" && key != "city" && key != "event name" &&
                 key != "date time" && key != "description")
             {

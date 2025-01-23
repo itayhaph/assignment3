@@ -2,47 +2,59 @@
 
 using boost::asio::ip::tcp;
 
+using std::cerr;
 using std::cin;
 using std::cout;
-using std::cerr;
 using std::endl;
 using std::string;
 
 std::mutex mutex;
 
-ConnectionHandler::ConnectionHandler(string host, short port) : host_(host), port_(port), io_service_(),socket_(io_service_) {}
+ConnectionHandler::ConnectionHandler(string host, short port, std::queue<std::function<void()>> &callbackQueue) : host_(host), port_(port), io_service_(), socket_(io_service_), callbackQueue(callbackQueue) {}
 
-ConnectionHandler::~ConnectionHandler() {
+ConnectionHandler::~ConnectionHandler()
+{
 	close();
 }
 
-bool ConnectionHandler::connect() {
+bool ConnectionHandler::connect()
+{
 	std::cout << "Starting connect to "
-	          << host_ << ":" << port_ << std::endl;
-	try {
+			  << host_ << ":" << port_ << std::endl;
+	try
+	{
 		tcp::endpoint endpoint(boost::asio::ip::address::from_string(host_), port_); // the server endpoint
 		boost::system::error_code error;
 		socket_.connect(endpoint, error);
 		if (error)
 			throw boost::system::system_error(error);
 	}
-	catch (std::exception &e) {
+	catch (std::exception &e)
+	{
 		std::cerr << "Connection failed (Error: " << e.what() << ')' << std::endl;
 		return false;
 	}
+
+	std::cout << "connect successfuly to "
+			  << host_ << ":" << port_ << std::endl;
 	return true;
 }
 
-bool ConnectionHandler::getBytes(char bytes[], unsigned int bytesToRead) {
+bool ConnectionHandler::getBytes(char bytes[], unsigned int bytesToRead)
+{
 	size_t tmp = 0;
 	boost::system::error_code error;
-	try {
-		while (!error && bytesToRead > tmp) {
+	try
+	{
+		while (!error && bytesToRead > tmp)
+		{
 			tmp += socket_.read_some(boost::asio::buffer(bytes + tmp, bytesToRead - tmp), error);
 		}
 		if (error)
 			throw boost::system::system_error(error);
-	} catch (std::exception &e) {
+	}
+	catch (std::exception &e)
+	{
 		std::cerr << "recv failed (Error: " << e.what() << ')' << std::endl;
 		return false;
 	}
@@ -65,80 +77,103 @@ bool ConnectionHandler::sendBytes(const char bytes[], int bytesToWrite) {
 	return true;
 }
 
-bool ConnectionHandler::getLine(std::string &line) {
+bool ConnectionHandler::getLine(std::string &line)
+{
 	return getFrameAscii(line, '\n');
 }
 
-bool ConnectionHandler::sendLine(std::string &line) {
+bool ConnectionHandler::sendLine(std::string &line)
+{
+	std::cout << "sending line to server" << std::endl;
+
 	return sendFrameAscii(line, '\n');
 }
 
-
-bool ConnectionHandler::getFrameAscii(std::string &frame, char delimiter) {
+bool ConnectionHandler::getFrameAscii(std::string &frame, char delimiter)
+{
 	char ch;
 	// Stop when we encounter the null character.
 	// Notice that the null character is not appended to the frame string.
-	try {
-		do {
-			if (!getBytes(&ch, 1)) {
+	try
+	{
+		do
+		{
+			if (!getBytes(&ch, 1))
+			{
 				return false;
 			}
 			if (ch != '\0')
 				frame.append(1, ch);
 		} while (delimiter != ch);
-	} catch (std::exception &e) {
+	}
+	catch (std::exception &e)
+	{
 		std::cerr << "recv failed2 (Error: " << e.what() << ')' << std::endl;
 		return false;
 	}
 	return true;
 }
 
-bool ConnectionHandler::sendFrameAscii(const std::string &frame, char delimiter) {
+bool ConnectionHandler::sendFrameAscii(const std::string &frame, char delimiter)
+{
 	bool result = sendBytes(frame.c_str(), frame.length());
-	if (!result) return false;
+	std::cout << "sended first bytes to server" << std::endl;
+	if (!result)
+		return false;
 	return sendBytes(&delimiter, 1);
 }
 
 // Close down the connection properly.
-void ConnectionHandler::close() {
-	try {
+void ConnectionHandler::close()
+{
+	try
+	{
 		socket_.close();
-	} catch (...) {
+	}
+	catch (...)
+	{
 		std::cout << "closing failed: connection already closed" << std::endl;
 	}
 }
-bool ConnectionHandler::hasDataToRead(){
-	try {
-        return socket_.available() > 0;
-    } catch (const boost::system::system_error &e) {
-        std::cerr << "Error checking socket availability: " << e.what() << std::endl;
-        return false;
-    }
+bool ConnectionHandler::hasDataToRead()
+{
+	try
+	{
+		return socket_.available() > 0;
+	}
+	catch (const boost::system::system_error &e)
+	{
+		return false;
+	}
 };
 
-void ConnectionHandler::addCallback(const std::function<boost::optional<bool>()>& callback) {
+void ConnectionHandler::addCallback(const std::function<void()> &callback)
+{
 	std::lock_guard<std::mutex> lock(mutex);
-    callbackQueue.push(callback);
-	std::lock_guard<std::mutex> unlock(mutex);
+	callbackQueue.emplace(callback);
+	lock.~lock_guard();
 }
 
-boost::optional<bool> ConnectionHandler::processNextCallback() {
-	if (!callbackQueue.empty()) {
+void ConnectionHandler::processNextCallback()
+{
+	if (!callbackQueue.empty())
+	{
+		std::cout << "got callback" << std::endl;
 		// Get the next callback
 		std::lock_guard<std::mutex> lock(mutex);
-		auto callback = callbackQueue.front();
+		std::function<void()> &callback = callbackQueue.front();
 		callbackQueue.pop();
-		std::lock_guard<std::mutex> unlock(mutex);
+		lock.~lock_guard();
 
 		// Execute the callback and check the result
-		boost::optional<bool> result = callback();
-		if (result.has_value()) {
-			return result.value();
-		} 
-		else {
-    	return boost::none;
-		}
-	} else {
-		std::cout << "No callbacks in the queue!" << std::endl;
+		callback();
 	}
+	else
+	{
+		// no callbacks
+	}
+}
+std::string ConnectionHandler::getHost()
+{
+	return host_;
 }

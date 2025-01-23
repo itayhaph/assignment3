@@ -1,7 +1,9 @@
 #include "StompMessageParser.h"
 #include <sstream>
+#include <string>
 
 // --- StompMessage Implementation ---
+StompMessage::StompMessage(): command(),headers(),body(){}
 
 void StompMessage::setCommand(const std::string& cmd) {
     command = cmd;

@@ -3,10 +3,10 @@ CFLAGS := -c -Wall -Weffc++ -g -std=c++11 -Iinclude
 LDFLAGS := -lboost_system -lpthread
 
 # Target binaries
-all: StompWCIClient
+all: StompEMIClient
 
-StompWCIClient: bin/ConnectionHandler.o bin/StompProtocol.o bin/event.o bin/StompMessageParser.o bin/Auxiliary.o bin/StompClient.o
-	g++ -o bin/StompWCIClient bin/ConnectionHandler.o bin/StompProtocol.o bin/event.o bin/StompMessageParser.o bin/Auxiliary.o bin/StompClient.o $(LDFLAGS)
+StompEMIClient: bin/ConnectionHandler.o bin/StompProtocol.o bin/event.o bin/StompMessageParser.o bin/Auxiliary.o bin/StompClient.o
+	g++ -o bin/StompEMIClient bin/ConnectionHandler.o bin/StompProtocol.o bin/event.o bin/StompMessageParser.o bin/Auxiliary.o bin/StompClient.o $(LDFLAGS)
 
 # Rules for object files
 bin/ConnectionHandler.o: src/ConnectionHandler.cpp include/ConnectionHandler.h

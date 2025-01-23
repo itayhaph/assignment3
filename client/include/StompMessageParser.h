@@ -12,6 +12,7 @@ private:
 
 public:
     // Setters (used internally by the parser)
+    StompMessage();
     void setCommand(const std::string& cmd);
     void addHeader(const std::string& key, const std::string& value);
     void setBody(const std::string& b);

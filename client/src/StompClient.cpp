@@ -35,11 +35,11 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
             }
             else
             {
-                int host = std::stoi(line[1]);
+                string host = handler.getHost();
                 string username = line[2];
                 string password = line[3];
 
-                handler.addCallback([&]() -> boost::optional<bool>
+                handler.addCallback([&]()
                                     { protocol.processLogin(host, username, password); });
             }
         }
@@ -53,7 +53,7 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
             else
             {
                 std::string channelName = line[1];
-                handler.addCallback([&]() -> boost::optional<bool>
+                handler.addCallback([&]()
                                     { protocol.processJoin(channelName); });
             }
         }
@@ -67,7 +67,7 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
             else
             {
                 std::string channelName = line[1];
-                handler.addCallback([&]() -> boost::optional<bool>
+                handler.addCallback([&]()
                                     { protocol.processExit(channelName); });
             }
         }
@@ -81,7 +81,7 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
 
             std::string filePath = line[1];
 
-            handler.addCallback([&]() -> boost::optional<bool>
+            handler.addCallback([&]()
                                 { protocol.processReport(filePath); });
         }
         else if (line[0] == "summary")
@@ -96,7 +96,7 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
             std::string user = line[2];
             std::string filePath = line[3];
 
-            handler.addCallback([&]() -> boost::optional<bool>
+            handler.addCallback([&]()
                                 { protocol.processSummary(channelName, user, filePath); });
         }
         else if (line[0] == "logout")
@@ -107,7 +107,7 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
                 continue;
             }
 
-            handler.addCallback([&]() -> boost::optional<bool>
+            handler.addCallback([&]()
                                 { protocol.processLogout(); });
         }
         else
@@ -128,6 +128,9 @@ void handleServerResponses(StompProtocol &protocol, ConnectionHandler &handler)
         if (handler.hasDataToRead())
         {
             bool response = handler.getLine(line);
+            std::cout << line << std::endl;
+
+            
 
             if (response)
             {
@@ -157,9 +160,12 @@ void handleServerResponses(StompProtocol &protocol, ConnectionHandler &handler)
 
 int main(int argc, char **argv)
 {
-    short port = static_cast<short>(std::stoi(argv[1]));
-    ConnectionHandler handler(argv[0], port);
-    handler.connect();
+
+    std::cout << "connect to " << argv[1] << "#####" << argv[2] << std::endl;
+    std::string host = argv[1];
+    short port = static_cast<short>(std::stoi(argv[2]));
+    std::queue<std::function<void()>> callbackQueue;
+    ConnectionHandler handler(host, port, callbackQueue);
     StompProtocol protocol = StompProtocol(handler);
     std::thread userInputThread(handleUserInput, std::ref(protocol), std::ref(handler));
     std::thread serverResponseThread(handleServerResponses, std::ref(protocol), std::ref(handler));
