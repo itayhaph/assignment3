@@ -48,8 +48,7 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         try {
             success = chan.read(buf) != -1;
         } catch (IOException ex) {
-            System.err.println("disconnecting user");
-            // ex.printStackTrace();
+            ex.printStackTrace();
         }
 
         if (success) {

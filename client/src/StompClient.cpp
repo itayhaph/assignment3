@@ -44,7 +44,11 @@ void handleServerResponses(StompProtocol &protocol, ConnectionHandler &handler)
                 {
                     std::cout << "Server Returned Error: " + frame.getHeader("message") << std::endl;
 
-                    std::cout << frame.getHeader("receipt-id") << std::endl;
+                    // checking if there is a receipt id header
+                    if (frame.getHeader("receipt-id").length() > 0)
+                    {
+                        std::cout << "receipt-id: " + frame.getHeader("receipt-id") << std::endl;
+                    }
 
                     if (frame.getBody().length() > 0)
                     {

@@ -83,10 +83,10 @@ public class ConnectionImpl<T> implements Connections<T> {
             connectedUsers.remove(currentUser.getUsername());
         }
 
-        try{
-            connectionHandler.close();
-        }
-        catch(IOException e) {
+        try {
+            if (connectionHandler != null)
+                connectionHandler.close();
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -155,9 +155,9 @@ public class ConnectionImpl<T> implements Connections<T> {
     }
 
     public int getUserSubscription(int connectionId, String channel) {
-        if(connectionIdToUserMap.get(connectionId) != null) {
+        if (connectionIdToUserMap.get(connectionId) != null) {
             return connectionIdToUserMap.get(connectionId)
-            .getSubscriptionIdByChannel(channel);
+                    .getSubscriptionIdByChannel(channel);
         }
 
         return -2;
