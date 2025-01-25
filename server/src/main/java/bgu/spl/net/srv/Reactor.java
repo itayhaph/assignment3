@@ -50,12 +50,10 @@ public class Reactor<T> implements Server<T> {
             System.out.println("Server started");
 
             while (!Thread.currentThread().isInterrupted()) {
-
                 selector.select();
                 runSelectionThreadTasks();
 
                 for (SelectionKey key : selector.selectedKeys()) {
-
                     if (!key.isValid()) {
                         continue;
                     } else if (key.isAcceptable()) {
@@ -66,7 +64,6 @@ public class Reactor<T> implements Server<T> {
                 }
 
                 selector.selectedKeys().clear(); // clear the selected keys set so that we can know about new events
-
             }
 
         } catch (ClosedSelectorException ex) {
@@ -110,21 +107,22 @@ public class Reactor<T> implements Server<T> {
         protocol.start(connectionId, connectionImpl);
         connectionImpl.createConnection(connectionId, handler);
 
-        clientChan.register(selector, SelectionKey.OP_READ, handler);
+        SelectionKey key = clientChan.register(selector, SelectionKey.OP_READ, handler);
+        handler.setSelectionKey(key);
     }
 
     private void handleReadWrite(SelectionKey key) {
         @SuppressWarnings("unchecked")
         NonBlockingConnectionHandler<T> handler = (NonBlockingConnectionHandler<T>) key.attachment();
 
-        if (key.isReadable()) {
+        if (key.isReadable() && !handler.isClosed()) {
             Runnable task = handler.continueRead();
             if (task != null) {
                 pool.submit(handler, task);
             }
         }
 
-        if (key.isValid() && key.isWritable()) {
+        if (key.isValid() && key.isWritable() && !handler.isClosed()) {
             handler.continueWrite();
         }
     }

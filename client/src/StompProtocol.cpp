@@ -18,7 +18,6 @@ StompProtocol::StompProtocol(ConnectionHandler &connectionHandler) : connectionH
 
 void StompProtocol::processLogin(std::string host, std::string username, std::string password)
 {
-    std::cout << "processing login" << std::endl;
     std::string frame = "CONNECT \n";
     frame.append("accept-version:1.2").append("\n");
     frame.append("host:" + host).append("\n");

@@ -64,8 +64,11 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
                 System.err.println("Cannot send message: Socket is closed or output stream is null");
                 return;
             }
-            out.write(encdec.encode(msg));
-            out.flush();
+
+            synchronized (out) {
+                out.write(encdec.encode(msg));
+                out.flush();
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }

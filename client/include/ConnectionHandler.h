@@ -62,6 +62,4 @@ public:
 
 	void processNextCallback();
 
-	std::string getHost();
-
 }; //class ConnectionHandler

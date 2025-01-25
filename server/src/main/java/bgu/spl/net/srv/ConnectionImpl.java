@@ -80,7 +80,6 @@ public class ConnectionImpl<T> implements Connections<T> {
         User currentUser = connectionIdToUserMap.remove(connectionId);
 
         if (currentUser != null) {
-            System.err.println("removing" + currentUser.getUsername());
             connectedUsers.remove(currentUser.getUsername());
         }
 
@@ -98,7 +97,6 @@ public class ConnectionImpl<T> implements Connections<T> {
 
     public synchronized String connect(int connectionId, String username, String password) {
         // if the user is new add him to map and list of users
-        System.err.println("username: " + username);
         if (!allUsers.containsKey(username)) {
             User user = new User(username, password);
             allUsers.put(username, user);
@@ -157,8 +155,12 @@ public class ConnectionImpl<T> implements Connections<T> {
     }
 
     public int getUserSubscription(int connectionId, String channel) {
-        return connectionIdToUserMap.get(connectionId)
-                .getSubscriptionIdByChannel(channel);
+        if(connectionIdToUserMap.get(connectionId) != null) {
+            return connectionIdToUserMap.get(connectionId)
+            .getSubscriptionIdByChannel(channel);
+        }
+
+        return -2;
     }
 
     public boolean isChannelExist(String channel) {

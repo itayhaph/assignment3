@@ -15,12 +15,75 @@ using std::vector;
 using namespace std;
 
 bool isLoggedIn = false;
-std::string activeUser;
 
-void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
+void handleServerResponses(StompProtocol &protocol, ConnectionHandler &handler)
 {
+    while (true)
+    {
+        std::string line = "";
+        handler.processNextCallback();
+
+        if (handler.hasDataToRead())
+        {
+            bool response = handler.getLine(line);
+
+            if (response)
+            {
+                StompMessage frame = StompMessageParser::parseMessage(line);
+                if (frame.getCommand() == "CONNECTED")
+                {
+                    isLoggedIn = true;
+                    std::cout << "Login successful" << std::endl;
+                }
+
+                else if (frame.getCommand() == "RECEIPT")
+                {
+                    protocol.handleReceipt(frame.getHeader("receipt-id"));
+                }
+                else if (frame.getCommand() == "ERROR")
+                {
+                    std::cout << "Server Returned Error: " + frame.getHeader("message") << std::endl;
+
+                    std::cout << frame.getHeader("receipt-id") << std::endl;
+
+                    if (frame.getBody().length() > 0)
+                    {
+                        std::cout << frame.getBody() << std::endl;
+                    }
+                    isLoggedIn = false;
+                    protocol.terminate();
+                }
+                else if (frame.getCommand() == "MESSAGE")
+                {
+                    protocol.handleMessage(frame.getHeaders(), frame.getBody());
+                }
+            }
+        }
+    }
+}
+
+int main(int argc, char **argv)
+{
+    std::string host;
+    short port;
+
+    if (argc == 3)
+    {
+        host = argv[1];
+        port = static_cast<short>(std::stoi(argv[2]));
+    }
+    else
+    {
+        host = "stomp.cs.bgu.ac.il";
+        port = static_cast<short>(std::stoi(argv[1]));
+    }
+    std::queue<std::function<void()>> callbackQueue;
+    ConnectionHandler handler(host, port, callbackQueue);
+    StompProtocol protocol = StompProtocol(handler);
     std::string command;
-    // TODO figure out where we close this and the other while (close the threads)
+
+    std::thread serverResponseThread(handleServerResponses, std::ref(protocol), std::ref(handler));
+
     while (true)
     {
         Auxiliary aux;
@@ -31,16 +94,14 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
         {
             if (isLoggedIn)
             {
-                std::cout << "The client is already logged in" << std::endl;
                 continue;
             }
             else
             {
                 handler.connect();
-                string host = handler.getHost();
-                // string host2 = std::to_string(host);
-                string username = line[1];
-                string password = line[2];
+                string host = line[1];
+                string username = line[2];
+                string password = line[3];
 
                 handler.addCallback([host, username, password, &protocol]()
                                     { protocol.processLogin(host, username, password); });
@@ -120,60 +181,6 @@ void handleUserInput(StompProtocol &protocol, ConnectionHandler &handler)
             continue;
         }
     }
-}
-
-void handleServerResponses(StompProtocol &protocol, ConnectionHandler &handler)
-{
-    while (true)
-    {
-        std::string line = "";
-        handler.processNextCallback();
-
-        if (handler.hasDataToRead())
-        {
-            bool response = handler.getLine(line);
-
-            if (response)
-            {
-                StompMessage frame = StompMessageParser::parseMessage(line);
-                if (frame.getCommand() == "CONNECTED")
-                {
-                    isLoggedIn = true;
-                    std::cout << "Login successful" << std::endl;
-                }
-
-                else if (frame.getCommand() == "RECEIPT")
-                {
-                    protocol.handleReceipt(frame.getHeader("receipt-id"));
-                }
-                else if (frame.getCommand() == "ERROR")
-                {
-                    std::cout << "Server Returned Error: " + frame.getHeader("message")<< std::endl;
-                    isLoggedIn=false;
-                    protocol.terminate();
-                }
-                else if (frame.getCommand() == "MESSAGE")
-                {
-                    protocol.handleMessage(frame.getHeaders(), frame.getBody());
-                }
-            }
-        }
-    }
-}
-
-int main(int argc, char **argv)
-{
-    std::cout << "connect to " << argv[1] << "#####" << argv[2] << std::endl;
-    std::string host = argv[1];
-    short port = static_cast<short>(std::stoi(argv[2]));
-    std::queue<std::function<void()>> callbackQueue;
-    ConnectionHandler handler(argv[1], port, callbackQueue);
-    StompProtocol protocol = StompProtocol(handler);
-    std::thread userInputThread(handleUserInput, std::ref(protocol), std::ref(handler));
-    std::thread serverResponseThread(handleServerResponses, std::ref(protocol), std::ref(handler));
-
-    userInputThread.join();
-    serverResponseThread.join();
 
     return 0;
 }

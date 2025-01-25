@@ -29,10 +29,8 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
         StompMessage MessageParser = StompMessageParser.parseMessage((String) message);
         Map<String, String> headers = new HashMap<>();
 
-        System.err.println("processing");
         //CONNECT
         if (MessageParser.getCommand().equals("CONNECT")) {
-            System.err.println("got connect from client");
             String username = MessageParser.getHeaders().get("login");
             String password = MessageParser.getHeaders().get("passcode");
             String isConnected = connections.connect(connectionId, username, password);
@@ -71,7 +69,6 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
             Random random = new Random();
             int randomId = random.nextInt(Integer.MAX_VALUE); 
 
-            // TODO: check if we need to generate message id or use global counter
             String subscriptionId = String.valueOf(connections.getUserSubscription(connectionId, channel));
             String messageId = String.valueOf(randomId);
             
@@ -87,10 +84,11 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
                 connections.send(connectionId, stompMessage);
                 connections.disconnect(connectionId);
             }
-            // TODO check if its possible and complete
-            else if (subscriptionId == "-1") {
-                String stompMessage = StompFrameUtils.createStompFrame("ERROR", null, null);
-                connections.send(channel, stompMessage);
+            // checking if the user sended report when he is not subscribed to the channel
+            else if (subscriptionId.equals("-1")) {
+                headers.put("message", "The user is not subscribed to channel: " + channel);
+                String stompMessage = StompFrameUtils.createStompFrame("ERROR", headers, null);
+                connections.send(connectionId, stompMessage);
                 connections.disconnect(connectionId);
 
             } else {
@@ -107,16 +105,14 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
             String channel = MessageParser.getHeaders().get("destination");
             Integer subscriptionId = Integer.parseInt(MessageParser.getHeaders().get("id"));
             String isSubscribed = connections.subscribe(connectionId, channel, subscriptionId);
+            String receiptId = MessageParser.getHeaders().get("receipt");
+            headers.put("receipt-id", receiptId);
 
             if(isSubscribed==null){
-                String receiptId = MessageParser.getHeaders().get("receipt");
-                headers.put("receipt-id", receiptId);
                 String Message = StompFrameUtils.createStompFrame("RECEIPT", headers, null);
                 connections.send(connectionId, Message);
             }
             else {
-                String receiptId = MessageParser.getHeaders().get("receipt");
-                headers.put("receipt-id", receiptId);
                 headers.put("message", isSubscribed);
                 String errorMessage = StompFrameUtils.createStompFrame("ERROR", headers, null);
                 connections.send(connectionId, errorMessage);
@@ -130,17 +126,16 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
             int subscriptionId = Integer.parseInt(MessageParser.getHeaders().get("id"));
             // unsubscribe from the channel that has the subscription id from headers
             String isUnSubscribed = connections.unsubscribe(connectionId, subscriptionId);
+            String receiptId = MessageParser.getHeaders().get("receipt");
+            headers.put("receipt-id", receiptId);
 
             // only return frame if there is an error
             if (isUnSubscribed == null) {
-                 String receiptId = MessageParser.getHeaders().get("receipt");
-                headers.put("receipt-id", receiptId);
                 String Message = StompFrameUtils.createStompFrame("RECEIPT", headers, null);
                 connections.send(connectionId, Message);
             }
             else{
-                String receiptId = MessageParser.getHeaders().get("receipt");
-                headers.put("receipt-id", receiptId);
+                
                 headers.put("message", isUnSubscribed);
                 String errorMessage = StompFrameUtils.createStompFrame("ERROR", headers, null);
                 connections.send(connectionId, errorMessage);

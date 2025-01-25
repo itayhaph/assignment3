@@ -19,8 +19,7 @@ ConnectionHandler::~ConnectionHandler()
 
 bool ConnectionHandler::connect()
 {
-	std::cout << "Starting connect to "
-			  << host_ << ":" << port_ << std::endl;
+
 	try
 	{
 		tcp::endpoint endpoint(boost::asio::ip::address::from_string(host_), port_); // the server endpoint
@@ -36,16 +35,7 @@ bool ConnectionHandler::connect()
 		return false;
 	}
 
-	std::cout << "connect successfuly to "
-			  << host_ << ":" << port_ << std::endl;
-
-	if (socket_.is_open())
-	{
-		std::cout << "socket is open" << std::endl;
-	}
-	else{
-		std::cout << "socket not open" << std::endl;
-	}
+	
 	return true;
 }
 
@@ -163,7 +153,6 @@ void ConnectionHandler::addCallback(const std::function<void()> &callback)
 {
 	std::lock_guard<std::mutex> lock(mutex);
 	callbackQueue.emplace(callback);
-	// lock.~lock_guard();
 }
 
 void ConnectionHandler::processNextCallback()
@@ -178,15 +167,11 @@ void ConnectionHandler::processNextCallback()
             callback = callbackQueue.front();
             callbackQueue.pop();
         }
-    } // Mutex is unlocked here
+    }
 
     if (callback)
     {
-        callback(); // Execute the callback outside the lock
+        callback();
     }
 }
 
-std::string ConnectionHandler::getHost()
-{
-	return host_;
-}
