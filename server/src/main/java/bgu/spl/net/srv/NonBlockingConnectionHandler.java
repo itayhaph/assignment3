@@ -19,7 +19,6 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
     private final MessageEncoderDecoder<T> encdec;
     private final Queue<ByteBuffer> writeQueue = new ConcurrentLinkedQueue<>();
     private final SocketChannel chan;
-    private SelectionKey selectionKey;
 
     @SuppressWarnings("rawtypes")
     private final Reactor reactor;
@@ -35,20 +34,14 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         this.protocol = protocol;
         this.reactor = reactor;
     }
-
-    public void setSelectionKey(SelectionKey selectionKey) {
-        this.selectionKey = selectionKey;
-    }
-
+    
     public Runnable continueRead() {
-
         ByteBuffer buf = leaseBuffer();
 
         boolean success = false;
         try {
             success = chan.read(buf) != -1;
         } catch (IOException ex) {
-            ex.printStackTrace();
         }
 
         if (success) {
@@ -75,9 +68,6 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
 
     public void close() {
         try {
-            if (selectionKey != null) {
-                selectionKey.cancel(); // Cancel the SelectionKey
-            }
             chan.close();
         } catch (IOException ex) {
             ex.printStackTrace();
@@ -105,12 +95,11 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         }
 
         if (writeQueue.isEmpty()) {
-            if (protocol.shouldTerminate())
-                close();
-            else
-                reactor.updateInterestedOps(chan, SelectionKey.OP_READ);
+            if (protocol.shouldTerminate()) close();
+            else reactor.updateInterestedOps(chan, SelectionKey.OP_READ);
         }
     }
+
 
     private static ByteBuffer leaseBuffer() {
         ByteBuffer buff = BUFFER_POOL.poll();

@@ -60,7 +60,6 @@ public class StompMessagingProtocolImpl implements MessagingProtocol<String> {
             this.terminate = true;
         } 
         
-        
         //SEND
         else if (MessageParser.getCommand().equals("SEND")) {
             

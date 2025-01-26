@@ -131,6 +131,15 @@ void StompProtocol::processSummary(string channelName, std::string user, std::st
         return;
     }
 
+    std::sort(events.begin(), events.end(), [](const Event &a, const Event &b)
+              {
+                  if (a.get_date_time() == b.get_date_time())
+                  {
+                      return a.get_name() < b.get_name(); // Lexicographical order
+                  }
+                  return a.get_date_time() < b.get_date_time(); // Order by dateTime
+              });
+   
     int activeCount = 0;
     int forcesArrivalCount = 0;
 
@@ -210,7 +219,6 @@ void StompProtocol::handleReceipt(std::string receiptId)
     {
         std::cout << "terminating "<< std::endl;
         terminate();
-        // isTerminated = true;
     }
 }
 
@@ -261,8 +269,3 @@ void StompProtocol::setUsername(const std::string &username)
 {
     this->username = username;
 }
-
-// bool StompProtocol::shouldTerminate()
-// {
-//     return isTerminated;
-// }

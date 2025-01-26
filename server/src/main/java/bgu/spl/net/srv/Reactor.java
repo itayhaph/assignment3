@@ -107,22 +107,21 @@ public class Reactor<T> implements Server<T> {
         protocol.start(connectionId, connectionImpl);
         connectionImpl.createConnection(connectionId, handler);
 
-        SelectionKey key = clientChan.register(selector, SelectionKey.OP_READ, handler);
-        handler.setSelectionKey(key);
+        clientChan.register(selector, SelectionKey.OP_READ, handler);
     }
 
     private void handleReadWrite(SelectionKey key) {
         @SuppressWarnings("unchecked")
         NonBlockingConnectionHandler<T> handler = (NonBlockingConnectionHandler<T>) key.attachment();
 
-        if (key.isReadable() && !handler.isClosed()) {
+        if (key.isReadable()) {
             Runnable task = handler.continueRead();
             if (task != null) {
                 pool.submit(handler, task);
             }
         }
 
-        if (key.isValid() && key.isWritable() && !handler.isClosed()) {
+        if (key.isValid() && key.isWritable()) {
             handler.continueWrite();
         }
     }

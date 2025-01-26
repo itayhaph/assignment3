@@ -38,4 +38,8 @@ public class User {
     public String unsubscribe(int id) {
         return subscriptionIdToChannelMap.remove(id);
     }
+
+    public void disconnect() {
+        subscriptionIdToChannelMap.clear();
+    }
 }

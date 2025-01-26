@@ -78,13 +78,14 @@ public class ConnectionImpl<T> implements Connections<T> {
         }
 
         User currentUser = connectionIdToUserMap.remove(connectionId);
-
+        
         if (currentUser != null) {
+            currentUser.disconnect();
             connectedUsers.remove(currentUser.getUsername());
         }
 
         try {
-            if (connectionHandler != null)
+            if (connectionHandler != null && connectionHandler instanceof BlockingConnectionHandler)
                 connectionHandler.close();
         } catch (IOException e) {
             e.printStackTrace();
