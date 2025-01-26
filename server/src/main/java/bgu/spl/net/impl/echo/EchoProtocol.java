@@ -28,7 +28,6 @@ public class EchoProtocol implements MessagingProtocol<String> {
 
     @Override
     public void start(int connectionId, Connections<String> connections) {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'start'");
     }
 }

@@ -15,7 +15,7 @@ public class User {
     }
 
     public boolean isPasswordValid(String password) {
-        return this.password == password;
+        return this.password.equals(password);
     }
 
     public int getSubscriptionIdByChannel(String channel) {
@@ -37,5 +37,9 @@ public class User {
 
     public String unsubscribe(int id) {
         return subscriptionIdToChannelMap.remove(id);
+    }
+
+    public void disconnect() {
+        subscriptionIdToChannelMap.clear();
     }
 }

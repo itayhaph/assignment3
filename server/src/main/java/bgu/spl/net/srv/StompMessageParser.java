@@ -26,12 +26,13 @@ public class StompMessageParser {
     public static StompMessage parseMessage(String message) {
         StompMessage stompMessage = new StompMessage();
         String[] lines = message.split("\n");
-        
-        // Step 1: Parse the command
+
+        // Parse the command
         stompMessage.command = lines[0].trim();
 
-        // Step 2: Parse headers
-        for (int i =0;i < lines.length && !lines[i].trim().isEmpty();i++) {
+        int i = 0;
+        // Parse headers
+        while (i < lines.length && !lines[i].trim().isEmpty()) {
             String line = lines[i];
             int colonIndex = line.indexOf(':');
             if (colonIndex > 0) {
@@ -39,15 +40,18 @@ public class StompMessageParser {
                 String value = line.substring(colonIndex + 1).trim();
                 stompMessage.headers.put(key, value);
             }
+            i++;
         }
 
-        // Step 3: Parse body (if present)
-        // StringBuilder body = new StringBuilder();
-        // while (i < lines.length) {
-        //     body.append(lines[i]).append("\n");
-        //     i++;
-        // }
-        // stompMessage.body = body.toString().trim();
+        // Parse body (if present)
+        StringBuilder body = new StringBuilder();
+
+        while (i < lines.length) {
+            body.append(lines[i]).append("\n");
+            i++;
+        }
+        
+        stompMessage.body = body.toString().trim();
 
         return stompMessage;
     }

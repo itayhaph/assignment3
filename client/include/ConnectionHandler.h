@@ -2,7 +2,10 @@
 
 #include <string>
 #include <iostream>
+#include <functional>
+#include <boost/optional.hpp>
 #include <boost/asio.hpp>
+#include <queue>
 
 using boost::asio::ip::tcp;
 
@@ -12,9 +15,13 @@ private:
 	const short port_;
 	boost::asio::io_service io_service_;   // Provides core I/O functionality
 	tcp::socket socket_;
+	std::queue<std::function<void()>> callbackQueue;
 
 public:
-	ConnectionHandler(std::string host, short port);
+	ConnectionHandler(const ConnectionHandler&) = delete;
+	ConnectionHandler& operator=(const ConnectionHandler&) = delete;
+
+	ConnectionHandler(std::string host, short port, std::queue<std::function<void()>>& callbackQueue);
 
 	virtual ~ConnectionHandler();
 
@@ -47,5 +54,12 @@ public:
 
 	// Close down the connection properly.
 	void close();
+
+	// checking if the socket has data to read
+	bool hasDataToRead();
+
+	void addCallback(const std::function<void()>& callback);
+
+	void processNextCallback();
 
 }; //class ConnectionHandler

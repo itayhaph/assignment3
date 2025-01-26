@@ -32,7 +32,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             out = new BufferedOutputStream(sock.getOutputStream());
 
             Random random = new Random();
-            int connectionId = random.nextInt();
+            int connectionId = random.nextInt(Integer.MAX_VALUE);
             ConnectionImpl<T> connectionImpl = ConnectionImpl.getInstance();
 
             protocol.start(connectionId, connectionImpl);
@@ -41,6 +41,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {
                 T nextMessage = encdec.decodeNextByte((byte) read);
                 if (nextMessage != null) {
+                    System.err.println(nextMessage);
                     protocol.process(nextMessage);
                 }
             }
@@ -59,8 +60,15 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     @Override
     public void send(T msg) {
         try {
-            out.write(encdec.encode(msg));
-            out.flush();
+            if (sock.isClosed() || out == null) {
+                System.err.println("Cannot send message: Socket is closed or output stream is null");
+                return;
+            }
+
+            synchronized (out) {
+                out.write(encdec.encode(msg));
+                out.flush();
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
